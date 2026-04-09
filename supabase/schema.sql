@@ -119,12 +119,12 @@ ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 -- stocks 表所有人可读（公开行情）
 ALTER TABLE public.stocks ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "stocks_public_read" ON public.stocks FOR SELECT USING (true);
-CREATE POLICY "stocks_service_write" ON public.stocks FOR ALL USING (auth.role() = 'service_role');
+CREATE POLICY "stocks_service_write" ON public.stocks FOR ALL USING ((SELECT auth.role()) = 'service_role');
 
 -- profiles：只能读写自己的
 CREATE POLICY "profiles_self_select" ON public.profiles FOR SELECT USING (auth.uid() = id);
 CREATE POLICY "profiles_self_update" ON public.profiles FOR UPDATE USING (auth.uid() = id);
-CREATE POLICY "profiles_service_all" ON public.profiles FOR ALL USING (auth.role() = 'service_role');
+CREATE POLICY "profiles_service_all" ON public.profiles FOR ALL USING ((SELECT auth.role()) = 'service_role');
 
 -- watchlist：只能操作自己的
 CREATE POLICY "watchlist_self" ON public.watchlist USING (auth.uid() = user_id);
@@ -132,15 +132,15 @@ CREATE POLICY "watchlist_insert" ON public.watchlist FOR INSERT WITH CHECK (auth
 
 -- portfolios：只能操作自己的
 CREATE POLICY "portfolios_self" ON public.portfolios USING (auth.uid() = user_id);
-CREATE POLICY "portfolios_service_all" ON public.portfolios FOR ALL USING (auth.role() = 'service_role');
+CREATE POLICY "portfolios_service_all" ON public.portfolios FOR ALL USING ((SELECT auth.role()) = 'service_role');
 
 -- orders：只能操作自己的
 CREATE POLICY "orders_self" ON public.orders USING (auth.uid() = user_id);
-CREATE POLICY "orders_service_all" ON public.orders FOR ALL USING (auth.role() = 'service_role');
+CREATE POLICY "orders_service_all" ON public.orders FOR ALL USING ((SELECT auth.role()) = 'service_role');
 
 -- transactions：只能读自己的
 CREATE POLICY "transactions_self_select" ON public.transactions FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "transactions_service_all" ON public.transactions FOR ALL USING (auth.role() = 'service_role');
+CREATE POLICY "transactions_service_all" ON public.transactions FOR ALL USING ((SELECT auth.role()) = 'service_role');
 
 -- ============================================================
 -- Realtime 开启

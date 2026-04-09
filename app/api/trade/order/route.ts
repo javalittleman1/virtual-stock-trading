@@ -140,9 +140,9 @@ export async function POST(request: NextRequest) {
         .single();
       
       if (orderError) {
-        console.error('Error creating order:', orderError);
+        console.error('Error creating order (buy):', JSON.stringify(orderError));
         return NextResponse.json(
-          { error: '创建订单失败' },
+          { error: `创建订单失败: ${orderError.message || orderError.code || JSON.stringify(orderError)}` },
           { status: 500 }
         );
       }
