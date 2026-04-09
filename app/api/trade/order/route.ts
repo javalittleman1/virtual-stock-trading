@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { 
-  isTradingHour, 
   validateBuyOrder, 
   validateSellOrder,
   calculateTotalCost,
@@ -26,7 +25,7 @@ export async function POST(request: NextRequest) {
     }
     
     const body = await request.json();
-    const { symbol, type, price, quantity, orderType = 'limit', forceNonTrading = false } = body;
+    const { symbol, type, price, quantity, orderType = 'limit' } = body;
     
     // 参数验证
     if (!symbol || !type || !quantity) {
@@ -43,13 +42,8 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // 检查交易时间（forceNonTrading=true 时跳过，仅用于测试）
-    if (!isTradingHour() && !forceNonTrading) {
-      return NextResponse.json(
-        { error: '非交易时间，无法下单' },
-        { status: 403 }
-      );
-    }
+    // 交易时间校验由前端负责，服务端不再拦截
+    // （前端已通过 isTradingHour + 二次确认机制保障）
     
     // 获取股票信息
     const { data: stock, error: stockError } = await supabase
