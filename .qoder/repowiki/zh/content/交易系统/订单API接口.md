@@ -15,6 +15,12 @@
 - [docs/API接口规范.md](file://docs/API接口规范.md)
 </cite>
 
+## 更新摘要
+**变更内容**
+- 更新了订单创建失败时的错误处理机制，提供更详细的错误信息
+- 增强了数据库错误信息的序列化处理，包括message、code字段
+- 改进了调试能力和问题定位准确性
+
 ## 目录
 1. [简介](#简介)
 2. [项目结构](#项目结构)
@@ -28,7 +34,7 @@
 10. [附录](#附录)
 
 ## 简介
-本文件面向“订单API接口”的完整技术文档，涵盖以下内容：
+本文件面向"订单API接口"的完整技术文档，涵盖以下内容：
 - RESTful API 设计规范：HTTP 方法、URL 路径、状态码使用
 - 订单提交接口：请求参数校验、业务规则检查、数据库事务处理、响应格式
 - 订单查询接口：单个订单、批量订单、条件筛选、分页机制
@@ -67,17 +73,7 @@ Route_Positions --> TradingRules
 TradingRules --> Constants
 ```
 
-图表来源
-- [app/api/trade/order/route.ts:1-331](file://app/api/trade/order/route.ts#L1-L331)
-- [app/api/trade/orders/route.ts:1-66](file://app/api/trade/orders/route.ts#L1-L66)
-- [app/api/trade/positions/route.ts:1-46](file://app/api/trade/positions/route.ts#L1-L46)
-- [lib/trading-rules.ts:1-272](file://lib/trading-rules.ts#L1-L272)
-- [lib/constants.ts:1-101](file://lib/constants.ts#L1-L101)
-- [lib/supabase/server.ts:1-35](file://lib/supabase/server.ts#L1-L35)
-- [stores/useTradeStore.ts:1-192](file://stores/useTradeStore.ts#L1-L192)
-- [components/trade/TradeForm.tsx:1-234](file://components/trade/TradeForm.tsx#L1-L234)
-
-章节来源
+**图表来源**
 - [app/api/trade/order/route.ts:1-331](file://app/api/trade/order/route.ts#L1-L331)
 - [app/api/trade/orders/route.ts:1-66](file://app/api/trade/orders/route.ts#L1-L66)
 - [app/api/trade/positions/route.ts:1-46](file://app/api/trade/positions/route.ts#L1-L46)
@@ -94,7 +90,7 @@ TradingRules --> Constants
 - 交易规则与常量：提供交易时间判断、涨跌停限制、手续费计算、数量单位等规则。
 - Supabase 客户端：封装服务端客户端创建与会话同步，确保鉴权与数据库访问一致。
 
-章节来源
+**章节来源**
 - [app/api/trade/order/route.ts:1-331](file://app/api/trade/order/route.ts#L1-L331)
 - [app/api/trade/orders/route.ts:1-66](file://app/api/trade/orders/route.ts#L1-L66)
 - [app/api/trade/positions/route.ts:1-46](file://app/api/trade/positions/route.ts#L1-L46)
@@ -129,7 +125,7 @@ DB-->>Positions : 返回持仓数据
 Positions-->>Store : 返回持仓列表
 ```
 
-图表来源
+**图表来源**
 - [stores/useTradeStore.ts:99-121](file://stores/useTradeStore.ts#L99-L121)
 - [app/api/trade/order/route.ts:11-331](file://app/api/trade/order/route.ts#L11-L331)
 - [app/api/trade/orders/route.ts:5-66](file://app/api/trade/orders/route.ts#L5-L66)
@@ -158,12 +154,14 @@ Positions-->>Store : 返回持仓列表
   - 卖出：增加可用余额 → 创建订单 → 写入交易 → 更新/删除持仓（清仓则删除记录）。
 - 响应格式
   - 成功返回：order_id、symbol、type、price、quantity、filled_quantity、status、fee、created_at。
-  - 失败返回：统一错误对象，包含错误信息与状态码。
+  - **错误处理改进**：失败返回统一错误对象，包含详细的错误信息与状态码，支持message、code或序列化错误信息。
 - 安全与鉴权
   - 通过 Supabase Auth 获取当前用户，未登录返回 401。
   - 交易时间外返回 403。
   - 参数缺失/非法返回 400。
   - 数据库错误返回 500。
+
+**更新** 增强了订单创建失败时的错误处理，提供更详细的调试信息
 
 ```mermaid
 flowchart TD
@@ -184,16 +182,19 @@ StockOK --> |是| PriceType["确定委托价格市价/限价"]
 PriceType --> BuyOrSell{"买入还是卖出？"}
 BuyOrSell --> |买入| BuyFlow["买入流程：资金校验→扣款→创建订单→写入交易→更新/新增持仓"]
 BuyOrSell --> |卖出| SellFlow["卖出流程：持仓校验→增钱→创建订单→写入交易→更新/删除持仓"]
-BuyFlow --> Done["返回订单响应"]
+BuyFlow --> OrderCreate["创建订单"]
+OrderCreate --> OrderOK{"订单创建成功？"}
+OrderOK --> |否| DetailedError["返回详细错误信息<br/>包含message、code或序列化错误"]
+OrderOK --> |是| Done["返回订单响应"]
 SellFlow --> Done
 ```
 
-图表来源
+**图表来源**
 - [app/api/trade/order/route.ts:11-331](file://app/api/trade/order/route.ts#L11-L331)
 - [lib/trading-rules.ts:164-247](file://lib/trading-rules.ts#L164-L247)
 - [lib/constants.ts:1-101](file://lib/constants.ts#L1-L101)
 
-章节来源
+**章节来源**
 - [app/api/trade/order/route.ts:1-331](file://app/api/trade/order/route.ts#L1-L331)
 - [lib/trading-rules.ts:1-272](file://lib/trading-rules.ts#L1-L272)
 - [lib/constants.ts:1-101](file://lib/constants.ts#L1-L101)
@@ -225,11 +226,11 @@ DB-->>Orders : 返回数据与 count
 Orders-->>Store : 返回 { data, total, page, limit }
 ```
 
-图表来源
+**图表来源**
 - [app/api/trade/orders/route.ts:5-66](file://app/api/trade/orders/route.ts#L5-L66)
 - [stores/useTradeStore.ts:68-84](file://stores/useTradeStore.ts#L68-L84)
 
-章节来源
+**章节来源**
 - [app/api/trade/orders/route.ts:1-66](file://app/api/trade/orders/route.ts#L1-L66)
 - [stores/useTradeStore.ts:68-84](file://stores/useTradeStore.ts#L68-L84)
 - [lib/constants.ts:70-79](file://lib/constants.ts#L70-L79)
@@ -254,11 +255,11 @@ DB-->>Positions : 返回持仓数据
 Positions-->>Store : 返回 { data }
 ```
 
-图表来源
+**图表来源**
 - [app/api/trade/positions/route.ts:5-46](file://app/api/trade/positions/route.ts#L5-L46)
 - [stores/useTradeStore.ts:33-66](file://stores/useTradeStore.ts#L33-L66)
 
-章节来源
+**章节来源**
 - [app/api/trade/positions/route.ts:1-46](file://app/api/trade/positions/route.ts#L1-L46)
 - [stores/useTradeStore.ts:33-66](file://stores/useTradeStore.ts#L33-L66)
 
@@ -269,7 +270,7 @@ Positions-->>Store : 返回 { data }
 - 数量单位：1 手 = 100 股。
 - 盈亏计算：利润 = (现价 - 成本均价) × 数量；百分比 = 利润 ÷ 成本 ÷ 数量 × 100。
 
-章节来源
+**章节来源**
 - [lib/trading-rules.ts:1-272](file://lib/trading-rules.ts#L1-L272)
 - [lib/constants.ts:1-101](file://lib/constants.ts#L1-L101)
 
@@ -284,7 +285,7 @@ Positions-->>Store : 返回 { data }
 - 会话同步
   - 代理中间件确保浏览器与服务端会话一致，避免随机登出问题。
 
-章节来源
+**章节来源**
 - [lib/supabase/server.ts:1-35](file://lib/supabase/server.ts#L1-L35)
 - [lib/supabase/proxy.ts:1-77](file://lib/supabase/proxy.ts#L1-L77)
 - [app/api/trade/order/route.ts:15-23](file://app/api/trade/order/route.ts#L15-L23)
@@ -303,9 +304,10 @@ Positions-->>Store : 返回 { data }
     - 查询持仓：[fetchHoldings:33-66](file://stores/useTradeStore.ts#L33-L66)
 - 错误处理模式
   - 读取响应 JSON 并根据 res.ok 判断；若非 2xx，读取 { error } 字段进行提示。
+  - **增强的错误处理**：订单创建失败时，错误响应可能包含详细的message、code或序列化错误信息，便于调试。
   - 参考：[submitOrder 错误分支:109-111](file://stores/useTradeStore.ts#L109-L111)
 
-章节来源
+**章节来源**
 - [stores/useTradeStore.ts:99-121](file://stores/useTradeStore.ts#L99-L121)
 - [stores/useTradeStore.ts:68-84](file://stores/useTradeStore.ts#L68-L84)
 - [stores/useTradeStore.ts:33-66](file://stores/useTradeStore.ts#L33-L66)
@@ -320,7 +322,7 @@ Positions-->>Store : 返回 { data }
   - 在文档中明确变更点与过渡期；对客户端发出兼容性提示。
   - 参考现有接口规范文档的版本记录与错误码规范。
 
-章节来源
+**章节来源**
 - [docs/API接口规范.md:1-16](file://docs/API接口规范.md#L1-L16)
 
 ## 依赖关系分析
@@ -347,7 +349,7 @@ FrontStore --> OrdersRoute
 FrontStore --> PositionsRoute
 ```
 
-图表来源
+**图表来源**
 - [app/api/trade/order/route.ts:1-331](file://app/api/trade/order/route.ts#L1-L331)
 - [app/api/trade/orders/route.ts:1-66](file://app/api/trade/orders/route.ts#L1-L66)
 - [app/api/trade/positions/route.ts:1-46](file://app/api/trade/positions/route.ts#L1-L46)
@@ -356,7 +358,7 @@ FrontStore --> PositionsRoute
 - [lib/supabase/server.ts:1-35](file://lib/supabase/server.ts#L1-L35)
 - [stores/useTradeStore.ts:1-192](file://stores/useTradeStore.ts#L1-L192)
 
-章节来源
+**章节来源**
 - [app/api/trade/order/route.ts:1-331](file://app/api/trade/order/route.ts#L1-L331)
 - [app/api/trade/orders/route.ts:1-66](file://app/api/trade/orders/route.ts#L1-L66)
 - [app/api/trade/positions/route.ts:1-46](file://app/api/trade/positions/route.ts#L1-L46)
@@ -383,12 +385,14 @@ FrontStore --> PositionsRoute
   - 400 参数错误：核对 symbol/type/price/quantity 是否符合规则。
   - 404 股票不存在：确认 stocks 表中是否存在该 symbol。
   - 500 服务器错误：查看后端日志，关注数据库写入异常。
+  - **增强的错误诊断**：订单创建失败时，检查错误响应中的详细信息，包括message、code或序列化错误，有助于快速定位问题。
 - 建议排查步骤
   - 使用 curl 直接调用接口，排除前端状态管理问题。
   - 检查 Supabase 数据库中 profiles/portfolios/orders/transactions 表数据是否一致。
   - 在交易时间前后分别测试，确认 isTradingHour 返回值。
+  - **调试增强功能**：当遇到订单创建失败时，特别关注错误响应中的详细信息字段，这些信息来自数据库错误对象的message、code或JSON序列化。
 
-章节来源
+**章节来源**
 - [app/api/trade/order/route.ts:18-23](file://app/api/trade/order/route.ts#L18-L23)
 - [app/api/trade/order/route.ts:44-49](file://app/api/trade/order/route.ts#L44-L49)
 - [app/api/trade/order/route.ts:58-63](file://app/api/trade/order/route.ts#L58-L63)
@@ -396,7 +400,7 @@ FrontStore --> PositionsRoute
 - [app/api/trade/positions/route.ts:12-17](file://app/api/trade/positions/route.ts#L12-L17)
 
 ## 结论
-本订单API接口遵循 RESTful 设计，结合交易规则与数据库事务，实现了从下单到持仓更新的闭环。通过 Supabase 实现实时订阅与鉴权，前端以状态管理统一调度，整体具备良好的扩展性与可维护性。建议后续完善速率限制与更细粒度的错误码，持续演进版本管理与兼容策略。
+本订单API接口遵循 RESTful 设计，结合交易规则与数据库事务，实现了从下单到持仓更新的闭环。通过 Supabase 实现实时订阅与鉴权，前端以状态管理统一调度，整体具备良好的扩展性与可维护性。**最新的错误处理改进显著提升了调试能力**，通过提供详细的错误信息（包括message、code或序列化错误），开发者能够更快地定位和解决问题。建议后续完善速率限制与更细粒度的错误码，持续演进版本管理与兼容策略。
 
 ## 附录
 - API 接口规范参考
