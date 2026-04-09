@@ -181,10 +181,11 @@ export function validateBuyOrder(
   price: number,
   quantity: number,
   availableBalance: number,
-  prevClose: number
+  prevClose: number,
+  forceNonTrading = false
 ): BuyOrderValidation {
-  // 检查交易时间
-  if (!isTradingHour()) {
+  // 检查交易时间（forceNonTrading=true 时跳过，仅用于测试环境）
+  if (!forceNonTrading && !isTradingHour()) {
     return { valid: false, error: '非交易时间，无法下单' };
   }
 
@@ -223,10 +224,11 @@ export function validateSellOrder(
   quantity: number,
   availableQuantity: number,
   prevClose: number,
-  buyDate?: Date
+  buyDate?: Date,
+  forceNonTrading = false
 ): SellOrderValidation {
-  // 检查交易时间
-  if (!isTradingHour()) {
+  // 检查交易时间（forceNonTrading=true 时跳过，仅用于测试环境）
+  if (!forceNonTrading && !isTradingHour()) {
     return { valid: false, error: '非交易时间，无法下单' };
   }
 

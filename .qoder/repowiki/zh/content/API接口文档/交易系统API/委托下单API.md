@@ -3,15 +3,22 @@
 <cite>
 **本文档引用的文件**
 - [route.ts](file://app/api/trade/order/route.ts)
+- [TradeForm.tsx](file://components/trade/TradeForm.tsx)
+- [useTradeStore.ts](file://stores/useTradeStore.ts)
 - [trading-rules.ts](file://lib/trading-rules.ts)
 - [constants.ts](file://lib/constants.ts)
 - [index.ts](file://types/index.ts)
-- [useTradeStore.ts](file://stores/useTradeStore.ts)
-- [TradeForm.tsx](file://components/trade/TradeForm.tsx)
 - [orders/route.ts](file://app/api/trade/orders/route.ts)
 - [positions/route.ts](file://app/api/trade/positions/route.ts)
 - [schema.sql](file://supabase/schema.sql)
 </cite>
+
+## 更新摘要
+**变更内容**
+- 新增非交易时间双重确认机制，提升用户体验和安全性
+- 增强服务端认证和交易规则验证
+- 优化前端交互流程，支持强制下单功能
+- 完善交易时间检查和错误处理机制
 
 ## 目录
 1. [简介](#简介)
@@ -27,6 +34,8 @@
 ## 简介
 
 委托下单API是虚拟股票交易系统的核心功能模块，负责处理用户的股票委托下单请求。该API实现了完整的交易流程，包括参数验证、交易规则检查、资金管理、持仓更新和实时数据同步等功能。
+
+**更新** 新增非交易时间双重确认机制，支持测试环境下的强制下单功能，提升了系统的安全性和用户体验。
 
 ## 项目结构
 
@@ -64,12 +73,12 @@ DB --> SC
 ```
 
 **图表来源**
-- [route.ts:1-331](file://app/api/trade/order/route.ts#L1-L331)
-- [trading-rules.ts:1-272](file://lib/trading-rules.ts#L1-L272)
+- [route.ts:1-328](file://app/api/trade/order/route.ts#L1-L328)
+- [trading-rules.ts:1-281](file://lib/trading-rules.ts#L1-L281)
 - [constants.ts:1-101](file://lib/constants.ts#L1-L101)
 
 **章节来源**
-- [route.ts:1-331](file://app/api/trade/order/route.ts#L1-L331)
+- [route.ts:1-328](file://app/api/trade/order/route.ts#L1-L328)
 - [schema.sql:1-152](file://supabase/schema.sql#L1-L152)
 
 ## 核心组件
@@ -94,8 +103,8 @@ DB --> SC
 - **交易记录表**: 记录已完成的交易详情
 
 **章节来源**
-- [route.ts:10-331](file://app/api/trade/order/route.ts#L10-L331)
-- [trading-rules.ts:163-247](file://lib/trading-rules.ts#L163-L247)
+- [route.ts:10-328](file://app/api/trade/order/route.ts#L10-L328)
+- [trading-rules.ts:179-256](file://lib/trading-rules.ts#L179-L256)
 - [constants.ts:1-101](file://lib/constants.ts#L1-L101)
 
 ## 架构概览
@@ -114,6 +123,10 @@ API->>Auth : 验证用户身份
 Auth-->>API : 返回用户信息
 API->>Rules : 检查交易时间
 Rules-->>API : 交易时间验证结果
+alt 非交易时间
+API->>Client : 请求二次确认
+Client-->>API : 确认强制下单
+end
 API->>DB : 查询股票信息
 DB-->>API : 返回股票数据
 API->>Rules : 验证订单参数
@@ -141,8 +154,8 @@ API-->>Client : 返回交易结果
 ```
 
 **图表来源**
-- [route.ts:11-331](file://app/api/trade/order/route.ts#L11-L331)
-- [trading-rules.ts:163-247](file://lib/trading-rules.ts#L163-L247)
+- [route.ts:11-328](file://app/api/trade/order/route.ts#L11-L328)
+- [trading-rules.ts:179-256](file://lib/trading-rules.ts#L179-L256)
 
 ## 详细组件分析
 
@@ -154,7 +167,7 @@ API-->>Client : 返回交易结果
 
 **请求参数验证**
 - 必需参数：symbol（股票代码）、type（交易类型）、quantity（数量）
-- 可选参数：price（价格）、orderType（订单类型，默认限价单）
+- 可选参数：price（价格）、orderType（订单类型，默认限价单）、forceNonTrading（强制非交易时间下单标志）
 - 类型验证：type必须为'buy'或'sell'
 
 **交易时间检查**
@@ -170,21 +183,27 @@ CheckType --> |市价单| MarketPrice[使用当前市场价格]
 CheckType --> |限价单| LimitPrice[使用用户指定价格]
 MarketPrice --> PriceValidation[验证价格有效性]
 LimitPrice --> PriceValidation
-PriceValidation --> BuyOrSell{检查交易类型}
+PriceValidation --> CheckTime{检查交易时间}
+CheckTime --> |非交易时间| ForceCheck{检查forceNonTrading标志}
+ForceCheck --> |true| ForceOrder[强制执行下单]
+ForceCheck --> |false| TimeError[返回非交易时间错误]
+CheckTime --> |交易时间| BuyOrSell{检查交易类型}
 BuyOrSell --> |买入| BuyValidation[买入验证流程]
 BuyOrSell --> |卖出| SellValidation[卖出验证流程]
+ForceOrder --> BuyValidation
+TimeError --> End([结束])
 BuyValidation --> BuySuccess[买入成功处理]
 SellValidation --> SellSuccess[卖出成功处理]
-BuySuccess --> End([结束])
+BuySuccess --> End
 SellSuccess --> End
 ```
 
 **图表来源**
-- [route.ts:65-104](file://app/api/trade/order/route.ts#L65-L104)
-- [route.ts:212-322](file://app/api/trade/order/route.ts#L212-L322)
+- [route.ts:63-70](file://app/api/trade/order/route.ts#L63-L70)
+- [route.ts:209-319](file://app/api/trade/order/route.ts#L209-L319)
 
 **章节来源**
-- [route.ts:25-49](file://app/api/trade/order/route.ts#L25-L49)
+- [route.ts:27-43](file://app/api/trade/order/route.ts#L27-L43)
 
 #### 买入订单处理流程
 
@@ -204,7 +223,7 @@ SellSuccess --> End
 - 同步更新多个表的数据
 
 **章节来源**
-- [route.ts:75-209](file://app/api/trade/order/route.ts#L75-L209)
+- [route.ts:73-207](file://app/api/trade/order/route.ts#L73-L207)
 
 #### 卖出订单处理流程
 
@@ -219,7 +238,43 @@ SellSuccess --> End
 - 验证交易数量的有效性
 
 **章节来源**
-- [route.ts:212-322](file://app/api/trade/order/route.ts#L212-L322)
+- [route.ts:209-319](file://app/api/trade/order/route.ts#L209-L319)
+
+### 非交易时间双重确认机制
+
+**更新** 新增的非交易时间双重确认机制显著提升了系统的安全性和用户体验：
+
+#### 前端实现
+
+```mermaid
+flowchart TD
+UserClick[用户点击下单] --> CheckTrading{检查交易时间}
+CheckTrading --> |交易时间| DirectSubmit[直接提交]
+CheckTrading --> |非交易时间| FirstConfirm{第一次点击}
+FirstConfirm --> ShowWarning[显示警告信息]
+ShowWarning --> Wait5Sec[等待5秒自动重置]
+Wait5Sec --> SecondConfirm{第二次点击}
+SecondConfirm --> ForceSubmit[强制提交]
+DirectSubmit --> SubmitOrder[提交订单]
+ForceSubmit --> SubmitOrder
+SubmitOrder --> ProcessOrder[处理订单]
+ProcessOrder --> Success[下单成功]
+ProcessOrder --> Error[下单失败]
+```
+
+**图表来源**
+- [TradeForm.tsx:85-137](file://components/trade/TradeForm.tsx#L85-L137)
+
+#### 状态管理增强
+
+**forceNonTrading参数支持**
+- 在useTradeStore中新增forceNonTrading可选参数
+- 支持测试环境下的强制下单功能
+- 通过submitOrder方法传递给后端API
+
+**章节来源**
+- [TradeForm.tsx:121-127](file://components/trade/TradeForm.tsx#L121-L127)
+- [useTradeStore.ts:14-21](file://stores/useTradeStore.ts#L14-L21)
 
 ### 交易规则验证系统
 
@@ -248,8 +303,8 @@ ValidPrice --> LowerLimit
 ```
 
 **图表来源**
-- [trading-rules.ts:78-86](file://lib/trading-rules.ts#L78-L86)
-- [trading-rules.ts:62-73](file://lib/trading-rules.ts#L62-L73)
+- [trading-rules.ts:71-95](file://lib/trading-rules.ts#L71-L95)
+- [trading-rules.ts:68-74](file://lib/trading-rules.ts#L68-L74)
 
 #### 数量验证规则
 
@@ -258,7 +313,7 @@ ValidPrice --> LowerLimit
 - 批量交易：支持多手交易
 
 **章节来源**
-- [trading-rules.ts:127-135](file://lib/trading-rules.ts#L127-L135)
+- [trading-rules.ts:139-144](file://lib/trading-rules.ts#L139-L144)
 
 ### 费用计算系统
 
@@ -295,10 +350,10 @@ BuyOrSell --> |卖出| SellTotal[卖出净收入]
 ```
 
 **图表来源**
-- [trading-rules.ts:88-125](file://lib/trading-rules.ts#L88-L125)
+- [trading-rules.ts:102-134](file://lib/trading-rules.ts#L102-L134)
 
 **章节来源**
-- [trading-rules.ts:88-106](file://lib/trading-rules.ts#L88-L106)
+- [trading-rules.ts:102-115](file://lib/trading-rules.ts#L102-L115)
 
 ### 数据模型定义
 
@@ -348,7 +403,7 @@ BuyOrSell --> |卖出| SellTotal[卖出净收入]
 - 保持界面与数据库同步
 
 **章节来源**
-- [useTradeStore.ts:144-186](file://stores/useTradeStore.ts#L144-L186)
+- [useTradeStore.ts:145-193](file://stores/useTradeStore.ts#L145-L193)
 
 ## 依赖关系分析
 
@@ -477,10 +532,17 @@ ORDER --> TYPES
 - 严格的参数验证
 - 完善的错误处理机制
 - 数据库层面的安全策略
+- **新增** 非交易时间双重确认机制，提升安全性
 
 **用户体验**
 - 简洁的API接口设计
 - 实时的状态更新
 - 详细的错误反馈
+- **新增** 智能的交易时间提示和强制下单功能
+
+**技术增强**
+- 前端二次确认机制
+- 状态管理参数支持
+- 服务端认证改进
 
 该系统为虚拟股票交易提供了坚实的技术基础，可以根据实际需求进一步扩展功能，如支持更多交易类型、增加风控机制、优化性能表现等。

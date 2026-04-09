@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     }
     
     const body = await request.json();
-    const { symbol, type, price, quantity, orderType = 'limit' } = body;
+    const { symbol, type, price, quantity, orderType = 'limit', forceNonTrading = false } = body;
     
     // 参数验证
     if (!symbol || !type || !quantity) {
@@ -42,8 +42,8 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // 交易时间校验由前端负责，服务端不再拦截
-    // （前端已通过 isTradingHour + 二次确认机制保障）
+    // 交易时间校验：forceNonTrading=true 时跳过（测试环境二次确认后使用）
+    // 正常情况下从 validateBuyOrder/validateSellOrder 通过 isTradingHour() 中国时区进行校验
     
     // 获取股票信息
     const { data: stock, error: stockError } = await supabase
@@ -90,7 +90,8 @@ export async function POST(request: NextRequest) {
         orderPrice,
         quantity,
         profile.virtual_balance,
-        stock.prev_close
+        stock.prev_close,
+        forceNonTrading
       );
       
       if (!validation.valid) {
@@ -228,7 +229,9 @@ export async function POST(request: NextRequest) {
         orderPrice,
         quantity,
         portfolio.quantity,
-        stock.prev_close
+        stock.prev_close,
+        undefined,
+        forceNonTrading
       );
       
       if (!validation.valid) {
