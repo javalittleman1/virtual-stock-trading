@@ -18,22 +18,19 @@ export const useUserStore = create<UserState>((set, get) => ({
   isLoading: false,
 
   fetchProfile: async () => {
-    const { profile } = get();
-    if (!profile?.id) return;
-
     set({ isLoading: true });
-    const supabase = createClient();
-    
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', profile.id)
-      .single();
-    
-    if (!error && data) {
-      set({ profile: data as Profile });
+    try {
+      const res = await fetch('/api/user/profile');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data && data.id) {
+        set({ profile: data as Profile });
+      }
+    } catch (e) {
+      console.error('fetchProfile error:', e);
+    } finally {
+      set({ isLoading: false });
     }
-    set({ isLoading: false });
   },
 
   updateBalance: (newBalance: number) => {

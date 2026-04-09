@@ -4,57 +4,91 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    /* 股掌主题 - 浅色模式 */
+    --background: 220 20% 97%;
+    --foreground: 210 40% 11%;
+    --card: 210 40% 99%;
+    --card-foreground: 210 40% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
+    --popover-foreground: 210 40% 11%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 210 40% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 25% 40%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 210 40% 11%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 217 91% 60%;
+    --radius: 1rem;
+    
+    /* 股掌自定义变量 */
+    --guzhang-bg-body: #f0f3f8;
+    --guzhang-bg-app: #ffffff;
+    --guzhang-bg-sidebar: #f9fcff;
+    --guzhang-border-light: #e2e9f2;
+    --guzhang-text-primary: #0b1e32;
+    --guzhang-text-secondary: #4b5e77;
+    --guzhang-card-bg: #fbfdff;
+    --guzhang-card-border: #e7edf5;
+    --guzhang-input-bg: #ffffff;
+    --guzhang-input-border: #d7e1ec;
+    --guzhang-stat-bg: #f5faff;
+    --guzhang-nav-active-bg: #e1ebfa;
+    --guzhang-shadow: rgba(0, 0, 0, 0.05);
+    --guzhang-asset-gradient: linear-gradient(135deg, #13294b 0%, #1a3a60 100%);
+    --guzhang-candle-up: #d83a3a;
+    --guzhang-candle-down: #0f9d6e;
+    --guzhang-warning-bg: #fff8e7;
+    --guzhang-warning-border: #ffd966;
+    --guzhang-support-line: #10b981;
+    --guzhang-resist-line: #ef4444;
+    --guzhang-signal-arrow: #f97316;
   }
+  
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
+    /* 股掌主题 - 深色模式 */
+    --background: 220 20% 5%;
+    --foreground: 220 20% 98%;
+    --card: 220 20% 10%;
+    --card-foreground: 220 20% 98%;
+    --popover: 220 20% 10%;
+    --popover-foreground: 220 20% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 20% 15%;
+    --secondary-foreground: 220 20% 98%;
+    --muted: 220 20% 15%;
+    --muted-foreground: 215 20% 55%;
+    --accent: 220 20% 15%;
+    --accent-foreground: 220 20% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --border: 220 20% 18%;
+    --input: 220 20% 18%;
+    --ring: 217 91% 60%;
+    
+    /* 股掌自定义变量 - 深色 */
+    --guzhang-bg-body: #0b0f15;
+    --guzhang-bg-app: #10161e;
+    --guzhang-bg-sidebar: #141c26;
+    --guzhang-border-light: #263544;
+    --guzhang-text-primary: #eef2fb;
+    --guzhang-text-secondary: #9aafca;
+    --guzhang-card-bg: #151e28;
+    --guzhang-card-border: #283544;
+    --guzhang-input-bg: #0f1922;
+    --guzhang-input-border: #314a60;
+    --guzhang-stat-bg: #1a2533;
+    --guzhang-nav-active-bg: #1e3a5f;
+    --guzhang-shadow: rgba(0,0,0,0.3);
+    --guzhang-asset-gradient: linear-gradient(145deg, #1b2532, #121a24);
+    --guzhang-warning-bg: #2a2a1c;
+    --guzhang-warning-border: #5e4e1c;
   }
 }
 
@@ -64,5 +98,39 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+}
+
+@layer utilities {
+  .text-guzhang-primary {
+    color: var(--guzhang-text-primary);
+  }
+  .text-guzhang-secondary {
+    color: var(--guzhang-text-secondary);
+  }
+  .bg-guzhang-card {
+    background: var(--guzhang-card-bg);
+  }
+  .bg-guzhang-stat {
+    background: var(--guzhang-stat-bg);
+  }
+  .bg-guzhang-asset {
+    background: var(--guzhang-asset-gradient);
+  }
+  .border-guzhang {
+    border-color: var(--guzhang-card-border);
+  }
+  .text-stock-up {
+    color: var(--guzhang-candle-up);
+  }
+  .text-stock-down {
+    color: var(--guzhang-candle-down);
+  }
+  .bg-stock-up {
+    background: rgba(216, 58, 58, 0.1);
+  }
+  .bg-stock-down {
+    background: rgba(15, 157, 110, 0.1);
   }
 }

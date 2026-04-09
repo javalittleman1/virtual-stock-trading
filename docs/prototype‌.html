@@ -1,318 +1,745 @@
-# 模拟炒股软件 PRD
-
-| 文档版本 | 修改日期   | 修改人 | 修改内容                                                 |
-| -------- | ---------- | ------ | -------------------------------------------------------- |
-| V1.0     | 2026-04-09 | -      | 初稿创建                                                 |
-| V1.1     | 2026-04-09 | -      | 增加移动端与电脑端适配支持，细化响应式交互与性能指标     |
-| V2.0     | 2026-04-09 | -      | 新增“股票策略分析模块（涨停回调战法）”                   |
-| V2.1     | 2026-04-09 | -      | 标注 MVP 优先级，移除硬编码数据描述                       |
-
----
-
-## 1. 产品概述
-
-### 1.1 产品背景
-
-当前个人投资者普遍缺乏系统化的交易训练环境，实盘操作面临较高的资金风险和心理压力。市面上现有模拟炒股软件存在数据延迟严重、用户体验陈旧、缺乏学习复盘功能等痛点。本项目旨在利用现代 Web 技术构建一款**轻量、实时、强教育属性**的模拟交易平台，帮助用户在零风险环境下学习股票交易、验证投资策略。
-
-### 1.2 产品定位
-
-一款面向**个人投资者与金融爱好者**的 Web 端模拟炒股工具，提供近乎实盘体验的仿真交易环境，并内置交易分析与学习模块，实现“练习—复盘—成长”的闭环。同时支持电脑端（大屏高效操作）与手机端（移动便捷看盘）的无缝体验。
-
-### 1.3 核心价值
-
-- **零门槛实盘模拟**：注册即获虚拟资金，完整复现真实市场交易规则。
-- **即时反馈学习**：每笔交易自动记录，生成可视化收益曲线与行为分析报告。
-- **极速开发部署**：基于 Supabase + Vercel 全栈架构，保障产品快速迭代与全球可用性。
-- **跨端一致性**：一次开发，全端自适应，数据与操作状态在手机和电脑间实时同步。
-
----
-
-## 2. 目标用户
-
-| 用户群体       | 特征描述                                                     | 核心需求                                     | 典型使用场景                 |
-| -------------- | ------------------------------------------------------------ | -------------------------------------------- | ---------------------------- |
-| **投资新手**   | 对股票交易有初步兴趣，缺乏实盘经验，惧怕亏损                 | 无风险练习下单、理解交易术语、建立盘感       | 手机碎片化看盘，电脑复盘学习 |
-| **策略验证者** | 有一定交易经验，希望在不投入真金白银的情况下测试新的投资策略 | 精准的历史回测替代、实时策略模拟             | 电脑深度分析，手机跟踪持仓   |
-| **金融学生**   | 正在学习金融或投资课程，需要实践平台辅助理解理论知识         | 可视化数据、案例复盘、学习引导               | 电脑完成作业，手机查行情     |
-
----
-
-## 3. 功能需求
-
-### 3.1 用户账户模块
-
-| 功能点         | 详细描述                                                     | MVP 范围 | 跨端支持说明             |
-| -------------- | ------------------------------------------------------------ | -------- | ------------------------ |
-| 注册/登录      | 支持邮箱注册、密码登录；通过 Supabase Auth 实现，后续可扩展 OAuth | P0       | 统一登录态，多端自动同步 |
-| 虚拟资金账户   | 新用户注册后自动分配初始虚拟资金（金额由系统配置）            | P0       | 数据云端存储，实时一致   |
-| 账户概览       | 展示总资产、可用资金、持仓市值、累计盈亏、当日盈亏、收益率曲线 | P0       | 图表自适应不同屏幕尺寸   |
-| 资金重置       | 提供“重置账户”功能（每周限1次），将资金恢复至初始状态，清空持仓与记录 | P2       | 操作确认弹窗适配移动手势 |
-
-### 3.2 行情数据模块
-
-| 功能点         | 详细描述                                                     | MVP 范围 | 跨端支持说明             |
-| -------------- | ------------------------------------------------------------ | -------- | ------------------------ |
-| 股票搜索       | 支持按代码、名称首字母模糊搜索                               | P0       | 移动端调起数字键盘       |
-| 实时行情       | 展示最新价、涨跌幅、涨跌额、今开、最高、最低、成交量          | P0       | 手机采用卡片式紧凑布局   |
-| K 线图表       | 支持日 K、周 K、月 K 切换，可叠加 MA5/MA10/MA30 等简单均线指标 | P1       | 手势缩放平移，电脑端支持鼠标悬停查看详情 |
-| 分时图         | 展示当日价格与成交量分时走势                                  | P1       | 同 K 线交互              |
-| 自选股列表     | 用户可添加/删除自选股，列表内实时更新行情变动                 | P0       | 左滑删除（移动端），右键菜单（电脑端） |
-| 数据更新机制   | 通过 Vercel Cron Jobs 定时拉取第三方 API，更新 Supabase 数据库，前端通过 Supabase Realtime 订阅推送 | P0       | 同                       |
-
-### 3.3 仿真交易模块（核心）
-
-| 功能点         | 详细描述                                                     | MVP 范围 | 跨端支持说明             |
-| -------------- | ------------------------------------------------------------ | -------- | ------------------------ |
-| 买入委托       | 支持限价单、市价单；自动校验资金是否充足、是否在交易时段、涨跌停限制 | P0       | 移动端使用底部动作面板，减少跳转 |
-| 卖出委托       | 支持限价单、市价单；校验持仓数量是否足够、是否在交易时段、涨跌停限制 | P0       | 同买入                   |
-| 交易规则模拟   | 实现 A 股 T+1 规则、涨跌停限制、手续费计算（可配置）          | P0       | 规则说明弹窗响应式       |
-| 持仓管理       | 实时计算持仓市值、浮动盈亏、盈亏比例、成本价；支持按股票分组展示 | P0       | 手机折叠卡片显示核心字段，展开显示详情 |
-| 委托记录       | 展示当日及历史委托单状态（已成交、部分成交、已撤销）         | P1       | 支持筛选与分页加载       |
-| 成交记录       | 展示已成交订单明细                                           | P1       | 同                       |
-
-### 3.4 交易复盘与学习模块
-
-| 功能点         | 详细描述                                                     | MVP 范围 | 跨端支持说明             |
-| -------------- | ------------------------------------------------------------ | -------- | ------------------------ |
-| 交易统计       | 统计总交易次数、胜率、平均盈利/亏损、最大单笔盈利、最大回撤、夏普比率（简化版） | P1       | 手机使用仪表盘卡片，电脑展示完整表格 |
-| 收益走势图     | 以折线图展示账户总资产随时间的变化，对比同期大盘指数           | P1       | 支持手势缩放与数据点触发展示 |
-| 交易日志       | 列表展示每笔已平仓交易的详细信息，支持按日期筛选               | P1       | 同                       |
-| 投资知识库     | 静态 Markdown 页面集合，解释 K 线基础、技术指标含义、交易规则说明等 | P2       | 文章排版自适应，夜间模式阅读 |
-
-### 3.5 股票策略分析模块（涨停回调战法）
-
-> **MVP 范围：P1** —— 该模块在核心交易功能稳定后迭代实现。
-
-#### 3.5.1 模块概述
-
-- **背景与目标**：为有一定短线交易经验的用户，提供一套基于“涨停板回调”逻辑的智能分析工具。核心逻辑为 **“先筛选，等回调，抓信号”**，通过自动化识别 5 种经典的洗盘回调形态，帮助用户降低盘中追高的情绪化风险。
-- **产品定位**：工具型增值服务模块（非交易下单模块），将主观的 K 线形态观察转化为客观的信号自动识别与预警。
-- **核心用户**：A 股短线交易者、热衷技术形态分析的用户。
-
-#### 3.5.2 功能范围与边界
-
-| 层级            | 功能模块        | 核心产出                                   |
-| :-------------- | :-------------- | :----------------------------------------- |
-| **L1 数据池**   | 涨停股初筛      | 每日生成《首板观察池》，过滤垃圾股、高位股 |
-| **L2 策略引擎** | 5大回调信号识别 | K 线图自动标注“买点信号”，计算支撑/止损位  |
-| **L3 监控交互** | 自选盯盘与预警  | 条件触发时的站内信 / 推送（模拟实现）      |
-| **L4 复盘迭代** | 信号胜率回测    | 展示历史信号命中率，支持模拟练习           |
-
-**明确不做的范围（V1.0 版本边界）**：
-- 不涉及实盘交易，不连接券商接口。
-- 不提供投资建议，仅展示技术形态的客观识别结果，文案强制标注“仅供学习参考”。
-- 仅针对 A 股主板及创业板（剔除 ST、*ST、北交所、新股上市首月）。
-
-#### 3.5.3 功能一：涨停首板观察池（入口）
-
-- **逻辑规则**：每日收盘后系统抓取当日涨停股，执行过滤（剔除一字板、尾盘拉板、高位股、ST 等）。
-- **前端展示**：股票名称代码、所属概念板块、封单金额/流通市值比。
-- **快捷操作**：支持一键加入“回调监控列表”。
-
-#### 3.5.4 功能二：五大回调战法信号识别（核心）
-
-| 信号名称          | 触发逻辑（判定条件概述）                                     | UI 标注要求                                                  |
-| :---------------- | :----------------------------------------------------------- | :----------------------------------------------------------- |
-| **1. 三阴不破阳** | 涨停板后连续 3 阴，最低价未破涨停阳线实体底部，成交量递减     | 图标：🔥；画绿色虚线支撑位，突破时画红色箭头                   |
-| **2. 涨停揉搓线** | 涨停次日长上影，第三日长下影                                  | 图标：✂️；画蓝色压力线                                        |
-| **3. 倍量阴买点** | 涨停次日收阴，成交量小于涨停量一半                            | 图标：⏳；画水平黄线，突破时信号激活                          |
-| **4. N字涨停**    | 首板后调整 5-10 天未破涨停价，站稳 MA10                      | 图标：🔄；高亮 MA10 均线                                      |
-| **5. 高位反包**   | 2 连板以上断板后 3 日未破 5 日线，再度涨停反包               | 图标：🚀；显示“反包板”标签                                    |
-
-#### 3.5.5 功能三：智能预警与推送
-
-- **预警条件配置**：用户可自定义开关：突破压力线、尾盘形态确认（14:50）、跌破止损位（比例可调）。
-- **推送内容**：仅描述技术形态特征，不包含收益承诺。
-
-#### 3.5.6 功能四：复盘与统计看板
-
-- **信号日历**：日历视图展示每日触发信号的个股数量。
-- **胜率回测**：展示历史信号出现后的上涨概率及平均涨幅分布。
-- **风险提示**：进入模块时强制弹窗提示风险。
-
-#### 3.5.7 UI/UX 设计约束
-
-- K 线图组件需支持涨停 K 线高亮变色。
-- 优先保证暗色主题下指标对比度。
-- 文案合规：禁用“必涨”、“推荐买入”等词汇。
-
-#### 3.5.8 非功能性需求（分析模块）
-
-- K 线前复权数据准确，避免除权导致形态误判。
-- 盘中信号推送延迟 < 30 秒。
-- 支持收盘后半小时的选股计算高峰。
-
-### 3.6 系统管理后台
-
-| 功能点         | 详细描述                                                     | MVP 范围 |
-| -------------- | ------------------------------------------------------------ | -------- |
-| 股票数据源配置 | 管理员可切换数据提供商 API Key，监控数据拉取任务状态          | P2       |
-| 用户管理       | 查看用户列表、重置用户密码、禁用违规账户                       | P2       |
-| 系统公告       | 发布维护通知或市场假期提醒                                    | P2       |
-
----
-
-## 4. 非功能需求
-
-| 类别         | 要求                                                         |
-| ------------ | ------------------------------------------------------------ |
-| **性能**     | 页面首屏加载 < 2s（电脑端） / < 2.5s（移动端 4G 网络）；行情数据推送延迟 < 3s；支持 1000 并发用户；移动端 FID < 100ms，CLS < 0.1 |
-| **可用性**   | 核心交易流程操作步骤 ≤ 3 步；响应式布局覆盖最小宽度 320px，触摸区域不小于 44x44pt；支持横屏查看图表 |
-| **安全性**   | 所有 API 请求需通过 Supabase Row Level Security (RLS) 鉴权；敏感操作需二次确认；防范 SQL 注入与 XSS |
-| **可维护性** | 代码结构清晰，模块化设计；关键业务逻辑封装为独立函数           |
-| **可扩展性** | 数据模型预留“市场”字段（A 股/港股/美股），便于后期扩展多市场   |
-
----
-
-## 5. 数据模型设计
-
-### 5.1 核心表结构
-
-> 以下表结构基于 PostgreSQL，并通过 Supabase 管理。
-
-**profiles** （用户扩展信息）
-```sql
-CREATE TABLE profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users ON DELETE CASCADE,
-  email TEXT,
-  virtual_balance DECIMAL(18,2) DEFAULT 1000000.00,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-```
-
-**stocks** （股票基础信息）
-```sql
-CREATE TABLE stocks (
-  symbol TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  market TEXT DEFAULT 'A',
-  current_price DECIMAL(10,3),
-  prev_close DECIMAL(10,3),
-  open DECIMAL(10,3),
-  high DECIMAL(10,3),
-  low DECIMAL(10,3),
-  volume BIGINT,
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-```
-
-**portfolios** （用户持仓）
-```sql
-CREATE TABLE portfolios (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-  stock_symbol TEXT REFERENCES stocks(symbol),
-  quantity INT NOT NULL CHECK (quantity > 0),
-  avg_cost DECIMAL(10,3) NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(user_id, stock_symbol)
-);
-```
-
-**transactions** （交易记录）
-```sql
-CREATE TABLE transactions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-  stock_symbol TEXT NOT NULL,
-  type TEXT CHECK (type IN ('buy', 'sell')),
-  quantity INT NOT NULL,
-  price DECIMAL(10,3) NOT NULL,
-  fee DECIMAL(10,3) DEFAULT 0,
-  status TEXT DEFAULT 'filled',
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-```
-
-**watchlist** （自选股）
-```sql
-CREATE TABLE watchlist (
-  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-  stock_symbol TEXT REFERENCES stocks(symbol) ON DELETE CASCADE,
-  added_at TIMESTAMPTZ DEFAULT NOW(),
-  PRIMARY KEY (user_id, stock_symbol)
-);
-```
-
-### 5.2 Row Level Security (RLS) 策略
-
-```sql
--- 用户只能读写自己的数据
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can manage own profile" ON profiles
-  USING (auth.uid() = id)
-  WITH CHECK (auth.uid() = id);
-
-ALTER TABLE portfolios ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can manage own portfolios" ON portfolios
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
-
-ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can read own transactions" ON transactions
-  FOR SELECT USING (auth.uid() = user_id);
-```
-
----
-
-## 6. 技术方案
-
-### 6.1 整体架构
-
-```
-[用户浏览器] <--> [Vercel 边缘网络] <--> [Next.js 全栈应用]
-                                               |
-                       ┌-----------------------+-----------------------┐
-                       |                                               |
-                 [Supabase]                                      [第三方数据 API]
-            (PostgreSQL + Auth + Storage)                        (iTick 等)
-```
-
-### 6.2 技术栈选型
-
-| 组件         | 技术选型                                  | 说明                         |
-| ------------ | ----------------------------------------- | ---------------------------- |
-| 前端框架     | Next.js 15 (App Router) + TypeScript      | 服务端渲染、API 路由一体化   |
-| UI 库        | shadcn/ui + Tailwind CSS                  | 高质量、可定制组件           |
-| 图表库       | Recharts / Lightweight Charts              | K 线与分时图渲染             |
-| 后端服务     | Next.js API Routes + Vercel Edge Functions | 交易撮合、数据拉取           |
-| 数据库       | Supabase PostgreSQL                        | Realtime、Auth、Storage      |
-| 认证         | Supabase Auth                              | 邮箱密码认证                 |
-| 定时任务     | Vercel Cron Jobs                           | 定时拉取行情数据             |
-| 状态管理     | Zustand / Jotai                            | 轻量级全局状态               |
-
----
-
-## 7. UI/UX 设计要点
-
-### 7.1 通用设计原则
-
-- **简洁专业**：主色调采用深色或蓝灰金融风格，突出数据可视化。
-- **实时反馈**：价格变动时通过背景色闪烁（红涨绿跌）提供直观反馈。
-- **响应式优先**：以移动端设计为起点，逐步增强至桌面端布局。
-
-### 7.2 移动端专项设计
-
-| 设计要素         | 具体措施                                                     |
-| ---------------- | ------------------------------------------------------------ |
-| **导航**         | 底部标签栏（行情、自选、交易、资产、分析）                   |
-| **图表交互**     | 支持手势缩放与拖动                                           |
-| **交易操作**     | 使用底部动作面板，减少跳转                                   |
-
-### 7.3 桌面端专项设计
-
-| 设计要素         | 具体措施                                                     |
-| ---------------- | ------------------------------------------------------------ |
-| **多栏布局**     | 左侧导航，中间主区域，右侧辅助面板                           |
-| **快捷键**       | 支持 `/` 聚焦搜索，`Enter` 确认下单                          |
-
-### 7.4 响应式断点规划
-
-| 断点     | 屏幕宽度     | 设计策略                     |
-| -------- | ------------ | ---------------------------- |
-| 移动端   | < 640px      | 单列堆叠，底部导航           |
-| 桌面端   | ≥ 1024px     | 多列并排，固定侧边导航       |
-
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+  <title>股掌 · 模拟交易</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    /* ===== 全局变量与重置 ===== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    :root {
+      --bg-body: #f0f3f8;
+      --bg-app: #ffffff;
+      --bg-sidebar: #f9fcff;
+      --border-light: #e2e9f2;
+      --text-primary: #0b1e32;
+      --text-secondary: #4b5e77;
+      --card-bg: #fbfdff;
+      --card-border: #e7edf5;
+      --input-bg: #ffffff;
+      --input-border: #d7e1ec;
+      --stat-bg: #f5faff;
+      --nav-active-bg: #e1ebfa;
+      --shadow: rgba(0, 0, 0, 0.05);
+      --asset-gradient: linear-gradient(135deg, #13294b 0%, #1a3a60 100%);
+      --candle-up: #d83a3a;
+      --candle-down: #0f9d6e;
+      --warning-bg: #fff8e7;
+      --warning-border: #ffd966;
+      --support-line: #10b981;
+      --resist-line: #ef4444;
+      --signal-arrow: #f97316;
+      --modal-overlay: rgba(0,0,0,0.4);
+    }
+
+    body.dark {
+      --bg-body: #0b0f15;
+      --bg-app: #10161e;
+      --bg-sidebar: #141c26;
+      --border-light: #263544;
+      --text-primary: #eef2fb;
+      --text-secondary: #9aafca;
+      --card-bg: #151e28;
+      --card-border: #283544;
+      --input-bg: #0f1922;
+      --input-border: #314a60;
+      --stat-bg: #1a2533;
+      --nav-active-bg: #1e3a5f;
+      --shadow: rgba(0,0,0,0.3);
+      --asset-gradient: linear-gradient(145deg, #1b2532, #121a24);
+      --warning-bg: #2a2a1c;
+      --warning-border: #5e4e1c;
+      --modal-overlay: rgba(0,0,0,0.7);
+    }
+
+    body {
+      background: var(--bg-body);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      transition: background 0.2s;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 480px;
+      background: var(--bg-app);
+      min-height: 100vh;
+      box-shadow: 0 0 30px var(--shadow);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      color: var(--text-primary);
+      transition: background 0.2s;
+    }
+
+    @media (min-width: 1024px) {
+      body { padding: 24px; }
+      .app {
+        max-width: 1200px;
+        min-height: 800px;
+        border-radius: 36px;
+        flex-direction: row;
+        border: 1px solid var(--border-light);
+      }
+      .main-content { flex: 1; display: flex; flex-direction: column; }
+      .bottom-nav { display: none !important; }
+      .desktop-sidebar { display: flex !important; }
+    }
+
+    .desktop-sidebar {
+      display: none;
+      flex-direction: column;
+      width: 260px;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border-light);
+      padding: 28px 16px;
+      border-radius: 36px 0 0 36px;
+    }
+
+    .status-bar {
+      padding: 18px 20px 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--bg-app);
+    }
+    .status-bar h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); }
+    .status-bar h1 i { color: #2563eb; margin-right: 8px; }
+    .status-icons i { margin-left: 18px; color: var(--text-secondary); font-size: 20px; cursor: pointer; }
+
+    .search-container { padding: 8px 16px; display: none; }
+    .search-container.active { display: block; }
+    .search-box {
+      display: flex; background: var(--card-bg); border: 1px solid var(--input-border);
+      border-radius: 48px; padding: 6px 6px 6px 18px; align-items: center;
+    }
+    .search-box input {
+      flex: 1; background: transparent; border: none; padding: 12px 10px;
+      font-size: 16px; color: var(--text-primary); outline: none;
+    }
+    .search-box button {
+      background: #2563eb; border: none; color: white; padding: 8px 18px;
+      border-radius: 40px; font-weight: 500; cursor: pointer;
+    }
+
+    .asset-card {
+      background: var(--asset-gradient); margin: 12px 16px; padding: 20px;
+      border-radius: 28px; color: white;
+    }
+    .asset-header { display: flex; justify-content: space-between; opacity: 0.9; margin-bottom: 6px; }
+    .total-balance { font-size: 34px; font-weight: 700; margin-bottom: 10px; }
+    .asset-stats { display: flex; gap: 20px; font-size: 14px; flex-wrap: wrap; }
+    .profit-up { color: #ff7b7b; }
+    .profit-down { color: #4ade80; }
+
+    .view-container { flex: 1; padding: 0 0 8px; overflow-y: auto; }
+    .module-view.hidden { display: none !important; }
+
+    .section-header {
+      display: flex; justify-content: space-between; align-items: baseline;
+      padding: 12px 16px 6px;
+    }
+    .section-header h3 { font-size: 18px; font-weight: 700; color: var(--text-primary); }
+    .section-header a { color: #2563eb; font-size: 14px; text-decoration: none; cursor: pointer; }
+
+    .stock-list {
+      margin: 0 12px 16px; background: var(--card-bg); border-radius: 24px;
+      border: 1px solid var(--card-border); overflow: hidden;
+    }
+    .stock-item {
+      display: flex; align-items: center; padding: 16px;
+      border-bottom: 1px solid var(--card-border); cursor: pointer;
+    }
+    .stock-item:last-child { border: none; }
+    .stock-symbol { font-weight: 700; color: var(--text-primary); }
+    .stock-name { font-size: 13px; color: var(--text-secondary); }
+    .stock-price { flex:1; text-align: right; font-weight: 600; }
+    .stock-change { padding: 4px 8px; border-radius: 24px; font-weight: 600; }
+    .change-up { color: var(--candle-up); background: rgba(216,58,58,0.1); }
+    .change-down { color: var(--candle-down); background: rgba(15,157,110,0.1); }
+
+    .chart-container {
+      background: var(--bg-app); margin: 8px 16px 16px; border-radius: 24px;
+      padding: 12px 0; border: 1px solid var(--border-light);
+    }
+    .chart-bars { display: flex; align-items: flex-end; height: 140px; padding: 0 12px; gap: 6px; }
+    .candle { flex:1; min-width: 8px; border-radius: 4px 4px 2px 2px; }
+    .candle.up { background: var(--candle-up); }
+    .candle.down { background: var(--candle-down); }
+
+    .holdings-grid { margin: 4px 16px 20px; }
+    .holding-card {
+      background: var(--stat-bg); border-radius: 20px; padding: 16px;
+      margin-bottom: 10px; border: 1px solid var(--border-light);
+      display: flex; justify-content: space-between;
+    }
+
+    .trade-form {
+      background: var(--bg-app); margin: 12px 16px; border-radius: 28px;
+      padding: 24px 20px; border: 1px solid var(--border-light);
+    }
+    .trade-tabs { display: flex; gap: 8px; margin-bottom: 24px; }
+    .trade-tab {
+      flex:1; text-align: center; padding: 12px; border-radius: 40px;
+      font-weight: 600; background: var(--stat-bg); color: var(--text-secondary); cursor: pointer;
+    }
+    .trade-tab.active { background: #1e3a5f; color: white; }
+    .input-field { margin-bottom: 20px; }
+    .input-field label { color: var(--text-secondary); display: block; margin-bottom: 6px; }
+    .input-field input {
+      width: 100%; padding: 16px; background: var(--input-bg);
+      border: 1.5px solid var(--input-border); border-radius: 20px;
+      color: var(--text-primary); font-size: 16px;
+    }
+    .trade-submit {
+      background: #1e3a5f; color: white; border: none; width: 100%;
+      padding: 18px; border-radius: 48px; font-weight: 700; font-size: 18px; cursor: pointer;
+    }
+
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px; }
+    .stat-box { background: var(--stat-bg); border-radius: 20px; padding: 16px; border: 1px solid var(--border-light); }
+
+    .bottom-nav {
+      background: var(--bg-app); padding: 8px 16px 16px; display: flex;
+      justify-content: space-around; border-top: 1px solid var(--border-light);
+    }
+    .nav-item {
+      display: flex; flex-direction: column; align-items: center;
+      color: var(--text-secondary); font-size: 12px; cursor: pointer;
+    }
+    .nav-item i { font-size: 24px; margin-bottom: 4px; }
+    .nav-item.active { color: #2563eb; }
+
+    .sidebar-nav .nav-item {
+      flex-direction: row; gap: 14px; padding: 14px 18px;
+      border-radius: 16px; font-size: 16px; margin-bottom: 6px;
+    }
+    .sidebar-nav .nav-item.active { background: var(--nav-active-bg); color: #2563eb; }
+
+    .toast-message {
+      position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
+      background: #1e293b; color: white; padding: 12px 24px; border-radius: 60px;
+      z-index: 1000; opacity: 0; transition: opacity 0.2s; pointer-events: none;
+    }
+
+    .login-container { flex:1; display: flex; flex-direction: column; justify-content: center; padding: 32px 24px; }
+    .login-btn {
+      background: #2563eb; color: white; border: none; width: 100%; padding: 18px;
+      border-radius: 48px; font-weight: 700; font-size: 18px; cursor: pointer; margin: 16px 0 24px;
+    }
+    .theme-toggle-login { position: absolute; top: 24px; right: 24px; }
+    .hidden { display: none !important; }
+    #mainApp { display: flex; flex-direction: column; flex:1; }
+    .logout-btn {
+      background: transparent; border: 1px solid var(--border-light);
+      color: var(--text-secondary); padding: 8px 16px; border-radius: 30px; cursor: pointer; margin: 8px 16px;
+    }
+
+    /* 分析模块样式 */
+    .signal-detail-card {
+      background: var(--card-bg); border: 1px solid var(--card-border);
+      border-radius: 24px; margin: 0 16px 20px; overflow: hidden;
+    }
+    .signal-header {
+      padding: 16px 18px; background: var(--stat-bg); border-bottom: 1px solid var(--card-border);
+      display: flex; align-items: center; gap: 12px;
+    }
+    .signal-icon-lg { font-size: 28px; }
+    .signal-title { font-size: 18px; font-weight: 700; }
+    .mini-chart { padding: 16px 12px; }
+    .k-line-group { display: flex; align-items: flex-end; height: 100px; gap: 4px; margin-bottom: 8px; }
+    .k-bar { flex:1; min-width: 6px; border-radius: 3px; background: #aaa; }
+    .k-bar.up { background: var(--candle-up); }
+    .k-bar.down { background: var(--candle-down); }
+    .chart-annotation { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+    .anno-line { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+    .line-sample { width: 24px; height: 2px; border-radius: 2px; }
+    .line-sample.dashed-green { background: repeating-linear-gradient(90deg, var(--support-line) 0px, var(--support-line) 4px, transparent 4px, transparent 8px); }
+    .line-sample.solid-blue { background: #3b82f6; }
+    .line-sample.solid-yellow { background: #eab308; }
+    .arrow-icon { color: var(--signal-arrow); }
+
+    .tag-sm {
+      background: #2563eb20; color: #2563eb; padding: 2px 8px; border-radius: 30px; font-size: 12px;
+    }
+    .toggle-switch {
+      width: 44px; height: 24px; background: #ccc; border-radius: 40px;
+      display: inline-block; position: relative; cursor: pointer;
+    }
+    .toggle-switch.active { background: #2563eb; }
+    .toggle-switch::after {
+      content: ''; width: 20px; height: 20px; background: white; border-radius: 50%;
+      position: absolute; top: 2px; left: 2px; transition: 0.2s;
+    }
+    .toggle-switch.active::after { left: 22px; }
+
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: var(--modal-overlay); z-index: 2000;
+      display: flex; align-items: flex-end; justify-content: center;
+    }
+    .modal-content {
+      background: var(--bg-app); width: 100%; max-width: 480px;
+      border-radius: 32px 32px 0 0; padding: 24px 20px 32px;
+      max-height: 80vh; overflow-y: auto;
+    }
+    @media (min-width: 1024px) {
+      .modal-content { max-width: 600px; border-radius: 32px; margin: 20px; }
+      .modal-overlay { align-items: center; }
+    }
+    .modal-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 20px;
+    }
+    .close-modal { font-size: 24px; cursor: pointer; }
+    .detail-kline { background: var(--card-bg); border-radius: 20px; padding: 16px; margin: 16px 0; }
+    .warning-note {
+      background: var(--warning-bg); border-left: 4px solid var(--warning-border);
+      padding: 14px; border-radius: 12px; font-size: 13px; margin: 16px;
+    }
+  </style>
+</head>
+<body>
+<div class="app" id="appContainer">
+  <!-- 登录页面 -->
+  <div id="loginPage" class="login-container">
+    <div class="theme-toggle-login"><i class="fas fa-moon" id="loginThemeToggle"></i></div>
+    <div class="login-header"><h2><i class="fas fa-chart-line" style="color:#2563eb;"></i> 股掌</h2><p>仿真交易 · 智能复盘</p></div>
+    <div class="login-form">
+      <div class="input-field"><label>手机号 / 邮箱</label><input type="text" id="loginUsername" placeholder="请输入手机号或邮箱" value="demo@stock.com"></div>
+      <div class="input-field"><label>密码</label><input type="password" id="loginPassword" placeholder="请输入密码" value="123456"></div>
+      <button class="login-btn" id="loginBtn">登 录</button>
+      <div class="login-footer" style="text-align:center;"><a href="#">忘记密码？</a> · <a href="#" id="registerLink">立即注册</a></div>
+    </div>
+    <p style="text-align:center; margin-top:40px; color:var(--text-secondary);">演示账号：demo@stock.com / 123456</p>
+  </div>
+
+  <!-- 主应用 -->
+  <div id="mainApp" class="hidden" style="display:flex; flex-direction:column; flex:1;">
+    <div class="desktop-sidebar">
+      <div style="padding-left:8px; margin-bottom:24px;"><h2 style="font-weight:700; color:var(--text-primary);"><i class="fas fa-chart-line" style="color:#2563eb;"></i> 股掌</h2><p style="color:var(--text-secondary);">仿真交易 · 智能复盘</p></div>
+      <div class="sidebar-nav">
+        <div class="nav-item" data-view="market"><i class="fas fa-home"></i><span>行情</span></div>
+        <div class="nav-item" data-view="watchlist"><i class="fas fa-star"></i><span>自选</span></div>
+        <div class="nav-item" data-view="trade"><i class="fas fa-exchange-alt"></i><span>交易</span></div>
+        <div class="nav-item" data-view="analysis"><i class="fas fa-chart-bar"></i><span>分析</span></div>
+        <div class="nav-item" data-view="assets"><i class="fas fa-chart-pie"></i><span>资产</span></div>
+      </div>
+      <div style="margin-top:auto; padding:20px 8px; color:var(--text-secondary);"><i class="fas fa-database"></i> 初始资金 1,000,000</div>
+      <button class="logout-btn" id="logoutBtnSidebar"><i class="fas fa-sign-out-alt"></i> 退出登录</button>
+    </div>
+
+    <div class="main-content">
+      <div class="status-bar">
+        <h1><i class="fas fa-chart-line"></i> 股掌</h1>
+        <div class="status-icons"><i class="fas fa-search" id="toggleSearchBtn"></i><i class="far fa-bell"></i><i class="fas fa-moon" id="themeToggle"></i></div>
+      </div>
+      <div class="search-container" id="searchContainer"><div class="search-box"><i class="fas fa-search"></i><input type="text" id="searchInput" placeholder="搜索代码或名称"><button id="clearSearchBtn">取消</button></div></div>
+
+      <div class="asset-card">
+        <div class="asset-header"><span>总资产</span><span><i class="far fa-eye"></i></span></div>
+        <div class="total-balance" id="totalBalanceDisplay">¥1,258,430.50</div>
+        <div class="asset-stats">
+          <div class="stat-item"><span class="label">可用</span> <span class="value" id="availableCash">¥634,200</span></div>
+          <div class="stat-item"><span class="label">市值</span> <span class="value" id="marketValue">¥624,230</span></div>
+          <div class="stat-item"><span class="label">今日</span> <span class="value profit-up" id="todayPnl">+¥18,432</span></div>
+        </div>
+      </div>
+
+      <div class="view-container">
+        <!-- 行情模块 -->
+        <div id="view-market" class="module-view">
+          <div class="chart-container">
+            <div class="chart-bars" id="chartBars"></div>
+            <div class="chart-labels" style="display:flex; justify-content:space-around; padding:8px 16px; color:var(--text-secondary);"><span>09:30</span><span>10:30</span><span>11:30</span><span>14:00</span><span>15:00</span></div>
+          </div>
+          <div class="section-header"><h3>📈 热门股票</h3><a href="#">更多</a></div>
+          <div class="stock-list" id="hotStockList"></div>
+        </div>
+
+        <!-- 自选模块 -->
+        <div id="view-watchlist" class="module-view hidden">
+          <div class="section-header"><h3>⭐ 我的自选</h3><a href="#" id="editWatchlistLink">编辑</a></div>
+          <div class="stock-list" id="watchlistContainer"></div>
+        </div>
+
+        <!-- 交易模块 -->
+        <div id="view-trade" class="module-view hidden">
+          <div class="trade-form">
+            <div class="trade-tabs">
+              <div class="trade-tab active" data-trade="buy">买入</div>
+              <div class="trade-tab" data-trade="sell">卖出</div>
+            </div>
+            <div class="input-field"><label>股票代码</label><input type="text" id="tradeSymbolInput" value="600519"></div>
+            <div class="input-field"><label>委托价格</label><input type="number" step="0.01" id="tradePriceInput" value="1685.00"></div>
+            <div class="input-field"><label>数量 (股)</label><input type="number" id="tradeQtyInput" value="100"></div>
+            <button class="trade-submit" id="executeTradeBtn">确认买入</button>
+            <p style="font-size:13px; color:var(--text-secondary); margin-top:16px;">可用: <span id="availableCashHint">¥634,200</span> · 手续费万2.5</p>
+          </div>
+          <div class="section-header"><h3>📋 当前持仓</h3><a href="#">全部</a></div>
+          <div class="holdings-grid" id="tradeHoldingsContainer"></div>
+        </div>
+
+        <!-- 分析模块 -->
+        <div id="view-analysis" class="module-view hidden">
+          <div class="warning-note"><i class="fas fa-exclamation-triangle"></i> 追涨杀跌风险极大，本工具识别的是历史形态特征，不代表未来收益。</div>
+          <div class="stats-grid"><div class="stat-box"><span>今日信号</span><br><span style="font-size:28px;">8</span></div><div class="stat-box"><span>近5日胜率</span><br><span style="font-size:28px; color:#0f9d6e;">62.5%</span></div></div>
+          <div class="section-header"><h3>🔥 首板观察池</h3><a href="#">刷新</a></div>
+          <div class="stock-list" id="firstBoardList"></div>
+          <div class="section-header"><h3>📊 五大回调战法</h3><a href="#">回测</a></div>
+          <div id="fiveSignalsContainer"></div>
+          <div class="section-header"><h3>⚙️ 智能预警</h3></div>
+          <div style="margin:0 16px 20px; background:var(--card-bg); border-radius:20px; padding:16px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:16px;"><span>📈 股价突破策略指定压力线</span><span class="toggle-switch active" data-alert="pressure"></span></div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:16px;"><span>⏰ 尾盘确认信号 (14:50推送)</span><span class="toggle-switch" data-alert="tail"></span></div>
+            <div style="display:flex; justify-content:space-between; align-items:center;"><span>🛡️ 跌破预设止损位</span><div style="display:flex; gap:8px;"><input type="number" value="5" style="width:60px; background:var(--input-bg); border:1px solid var(--input-border); border-radius:12px; padding:4px 8px; color:var(--text-primary);">%<span class="toggle-switch active" data-alert="stop"></span></div></div>
+          </div>
+          <div class="section-header"><h3>📅 信号日历</h3></div>
+          <div style="margin:8px 16px 20px;"><span class="tag-sm"><i class="far fa-calendar"></i> 04-07 6只</span><span class="tag-sm">04-08 9只</span><span class="tag-sm">04-09 8只</span></div>
+        </div>
+
+        <!-- 资产模块 -->
+        <div id="view-assets" class="module-view hidden">
+          <div class="stats-grid">
+            <div class="stat-box"><span>累计收益率</span><br><span style="font-size:28px; font-weight:700; color:#0f9d6e;" id="totalReturnRate">+25.84%</span></div>
+            <div class="stat-box"><span>最大回撤</span><br><span style="font-size:28px; font-weight:700;">-8.32%</span></div>
+            <div class="stat-box"><span>胜率</span><br><span style="font-size:28px; font-weight:700;">62.5%</span></div>
+            <div class="stat-box"><span>交易次数</span><br><span style="font-size:28px; font-weight:700;" id="tradeCount">48</span></div>
+          </div>
+          <div class="chart-container"><div style="padding:16px;">收益走势 (对比沪深300)</div></div>
+          <button class="logout-btn" id="logoutBtnMobile" style="margin:16px;">退出登录</button>
+        </div>
+      </div>
+
+      <div class="bottom-nav">
+        <div class="nav-item active" data-view="market"><i class="fas fa-home"></i><span>行情</span></div>
+        <div class="nav-item" data-view="watchlist"><i class="fas fa-star"></i><span>自选</span></div>
+        <div class="nav-item" data-view="trade"><i class="fas fa-exchange-alt"></i><span>交易</span></div>
+        <div class="nav-item" data-view="analysis"><i class="fas fa-chart-bar"></i><span>分析</span></div>
+        <div class="nav-item" data-view="assets"><i class="fas fa-chart-pie"></i><span>资产</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 战法详情浮层 -->
+<div id="signalDetailModal" class="modal-overlay hidden">
+  <div class="modal-content">
+    <div class="modal-header"><h4 id="modalTitle">三阴不破阳 · 600519</h4><i class="fas fa-times close-modal"></i></div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast-message"></div>
+
+<script>
+  (function(){
+    // ---------- 全局状态 ----------
+    let isLoggedIn = false;
+    let currentView = 'market';
+    let tradeType = 'buy';
+    
+    let user = {
+      cash: 634200.00,
+      holdings: [
+        { symbol: '600519', name: '贵州茅台', shares: 200, avgCost: 1620.50 },
+        { symbol: '300750', name: '宁德时代', shares: 500, avgCost: 198.30 }
+      ],
+      tradeCount: 48
+    };
+
+    const stocksDB = [
+      { symbol: '600519', name: '贵州茅台', price: 1685.00, change: +1.82, changePercent: '+0.11%' },
+      { symbol: '000858', name: '五 粮 液', price: 142.30, change: -2.10, changePercent: '-1.45%' },
+      { symbol: '300750', name: '宁德时代', price: 206.80, change: +5.20, changePercent: '+2.58%' },
+      { symbol: '002594', name: '比亚迪', price: 248.50, change: -3.40, changePercent: '-1.35%' },
+      { symbol: '601318', name: '中国平安', price: 48.20, change: +0.30, changePercent: '+0.63%' },
+      { symbol: '600036', name: '招商银行', price: 38.75, change: -0.45, changePercent: '-1.15%' }
+    ];
+    let filteredStocks = [...stocksDB];
+
+    const signalDetails = {
+      '三阴不破阳': { code: '600519', logic: '涨停板后连续3阴，最低未破涨停阳线实体底，成交量递减。', support: '1680.00', signal: '第4日突破调整高点为买点', cases: '近3个月出现4次，信号后5日上涨概率75%' },
+      '涨停揉搓线': { code: '300750', logic: '涨停次日长上影，第三日长下影，形成揉搓组合。', resist: '210.00', signal: '突破揉搓箱体上沿可关注', cases: '历史出现6次，后续平均涨幅4.2%' },
+      '倍量阴买点': { code: '002594', logic: '涨停次日收阴，成交量小于涨停量一半。', break: '252.00', signal: '股价突破阴线开盘价时信号激活', cases: '近半年出现5次，成功突破3次' },
+      'N字涨停': { code: '000858', logic: '首板后调整5-10天未破涨停价，站稳MA10。', ma10: true, cases: '常见于强势股回调' },
+      '高位反包': { code: '601318', logic: '2连板后断板3日未破5日线，再度涨停反包。', label: '反包板', cases: '高风险高收益形态' }
+    };
+
+    // DOM 元素
+    const loginPage = document.getElementById('loginPage');
+    const mainApp = document.getElementById('mainApp');
+    const balanceEl = document.getElementById('totalBalanceDisplay');
+    const cashEl = document.getElementById('availableCash');
+    const marketValueEl = document.getElementById('marketValue');
+    const todayPnlEl = document.getElementById('todayPnl');
+    const cashHint = document.getElementById('availableCashHint');
+    const totalReturnEl = document.getElementById('totalReturnRate');
+    const tradeCountEl = document.getElementById('tradeCount');
+    const hotList = document.getElementById('hotStockList');
+    const watchlistEl = document.getElementById('watchlistContainer');
+    const tradeHoldingsEl = document.getElementById('tradeHoldingsContainer');
+    const tradeSymbol = document.getElementById('tradeSymbolInput');
+    const tradePrice = document.getElementById('tradePriceInput');
+    const tradeQty = document.getElementById('tradeQtyInput');
+    const executeBtn = document.getElementById('executeTradeBtn');
+    const searchInput = document.getElementById('searchInput');
+    const searchContainer = document.getElementById('searchContainer');
+
+    // 辅助函数
+    function formatMoney(v) { return '¥' + v.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,'); }
+    function calcMarketValue() {
+      return user.holdings.reduce((sum, h) => {
+        const st = stocksDB.find(s => s.symbol === h.symbol);
+        return sum + (st ? st.price * h.shares : 0);
+      }, 0);
+    }
+    function calcTotalPnL() {
+      const mv = calcMarketValue();
+      const cost = user.holdings.reduce((s, h) => s + h.avgCost * h.shares, 0);
+      return mv - cost;
+    }
+
+    function renderStockItem(s) {
+      const up = s.change >= 0;
+      return `<div class="stock-item" data-symbol="${s.symbol}"><div class="stock-info"><div class="stock-symbol">${s.symbol}</div><div class="stock-name">${s.name}</div></div><div class="stock-price">${s.price.toFixed(2)}</div><div class="stock-change ${up?'change-up':'change-down'}">${up?'+':''}${s.changePercent}</div></div>`;
+    }
+
+    function renderStockLists() {
+      if(hotList) hotList.innerHTML = filteredStocks.map(renderStockItem).join('');
+      if(watchlistEl) watchlistEl.innerHTML = stocksDB.slice(0,4).map(renderStockItem).join('');
+    }
+
+    function renderHoldings() {
+      if(!tradeHoldingsEl) return;
+      const html = user.holdings.map(h => {
+        const st = stocksDB.find(s => s.symbol === h.symbol);
+        const price = st ? st.price : 0;
+        const mv = price * h.shares;
+        const profit = (price - h.avgCost) * h.shares;
+        const pct = ((price - h.avgCost) / h.avgCost * 100).toFixed(2);
+        return `<div class="holding-card"><div class="holding-left"><div class="symbol">${h.symbol}</div><div class="shares">${h.shares}股 · 成本${h.avgCost.toFixed(2)}</div></div><div class="holding-right"><div>${formatMoney(mv)}</div><div class="holding-pnl ${profit>=0?'profit-up':'profit-down'}">${profit>=0?'+':''}${profit.toFixed(2)} (${pct}%)</div></div></div>`;
+      }).join('');
+      tradeHoldingsEl.innerHTML = html || '<div style="padding:20px;text-align:center;">暂无持仓</div>';
+    }
+
+    function renderChart() {
+      const chart = document.getElementById('chartBars');
+      if(!chart) return;
+      chart.innerHTML = [45,30,62,28,55,70,40,58,25,48,64,33].map(h => `<div class="candle ${Math.random()>0.5?'up':'down'}" style="height:${h}px;"></div>`).join('');
+    }
+
+    function updateUI() {
+      if(!isLoggedIn) return;
+      const mv = calcMarketValue();
+      const total = user.cash + mv;
+      const pnl = calcTotalPnL();
+      balanceEl.textContent = formatMoney(total);
+      cashEl.textContent = formatMoney(user.cash);
+      marketValueEl.textContent = formatMoney(mv);
+      todayPnlEl.innerHTML = (pnl>=0?'+':'') + formatMoney(pnl);
+      todayPnlEl.className = `value ${pnl>=0?'profit-up':'profit-down'}`;
+      cashHint.textContent = formatMoney(user.cash);
+      const init = 1000000;
+      totalReturnEl.textContent = ((total - init) / init * 100).toFixed(2) + '%';
+      tradeCountEl.textContent = user.tradeCount;
+      renderStockLists();
+      renderHoldings();
+      renderChart();
+      if(currentView === 'analysis') renderAnalysisModule();
+    }
+
+    function renderAnalysisModule() {
+      const pool = document.getElementById('firstBoardList');
+      if(pool) pool.innerHTML = [{ sym:'002456', name:'欧菲光', ratio:'3.2%' },{ sym:'300418', name:'昆仑万维', ratio:'5.1%' }].map(s => `<div class="stock-item"><div><div class="stock-symbol">${s.sym}</div><div class="stock-name">${s.name}</div></div><div>封单/流通 ${s.ratio}</div></div>`).join('');
+      const container = document.getElementById('fiveSignalsContainer');
+      if(!container) return;
+      const signals = [
+        { icon:'🔥', name:'三阴不破阳', code:'600519', support:'1680.00' },
+        { icon:'✂️', name:'涨停揉搓线', code:'300750', resist:'210.00' },
+        { icon:'⏳', name:'倍量阴买点', code:'002594', break:'252.00' },
+        { icon:'🔄', name:'N字涨停', code:'000858', ma10: true },
+        { icon:'🚀', name:'高位反包', code:'601318', label:'反包板' }
+      ];
+      container.innerHTML = signals.map(s => `
+        <div class="signal-detail-card">
+          <div class="signal-header"><span class="signal-icon-lg">${s.icon}</span><div style="flex:1"><div class="signal-title">${s.name} · ${s.code}</div></div><span class="tag-sm detail-trigger" data-signal="${s.name}">详情</span></div>
+          <div class="mini-chart">
+            <div class="k-line-group">${Array(12).fill(0).map(() => `<div class="k-bar ${Math.random()>0.5?'up':'down'}" style="height:${20+Math.random()*50}px;"></div>`).join('')}</div>
+            <div class="chart-annotation">
+              ${s.support ? `<div class="anno-line"><span class="line-sample dashed-green"></span> 支撑 ${s.support}</div>` : ''}
+              ${s.resist ? `<div class="anno-line"><span class="line-sample solid-blue"></span> 压力 ${s.resist}</div>` : ''}
+              ${s.break ? `<div class="anno-line"><span class="line-sample solid-yellow"></span> 突破位 ${s.break} <i class="fas fa-arrow-up arrow-icon"></i></div>` : ''}
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function executeTrade() {
+      if(!isLoggedIn) return;
+      const sym = tradeSymbol.value.trim().toUpperCase();
+      const price = parseFloat(tradePrice.value);
+      const qty = parseInt(tradeQty.value);
+      const stock = stocksDB.find(s => s.symbol === sym);
+      if(!stock) { showToast('股票代码不存在'); return; }
+      if(isNaN(price)||price<=0||isNaN(qty)||qty<=0) { showToast('价格/数量无效'); return; }
+      if(tradeType === 'buy') {
+        const cost = price * qty * 1.00025;
+        if(user.cash < cost) { showToast('可用资金不足'); return; }
+        user.cash -= cost;
+        const exist = user.holdings.find(h => h.symbol === sym);
+        if(exist) {
+          const totalCost = exist.avgCost * exist.shares + price * qty;
+          exist.shares += qty;
+          exist.avgCost = totalCost / exist.shares;
+        } else {
+          user.holdings.push({ symbol: sym, name: stock.name, shares: qty, avgCost: price });
+        }
+        user.tradeCount++;
+        showToast(`买入 ${sym} ${qty}股 成交价 ${price.toFixed(2)}`);
+      } else {
+        const holding = user.holdings.find(h => h.symbol === sym);
+        if(!holding || holding.shares < qty) { showToast('持仓不足'); return; }
+        user.cash += price * qty * 0.99875;
+        holding.shares -= qty;
+        if(holding.shares === 0) user.holdings = user.holdings.filter(h => h.symbol !== sym);
+        user.tradeCount++;
+        showToast(`卖出 ${sym} ${qty}股 成交价 ${price.toFixed(2)}`);
+      }
+      updateUI();
+    }
+
+    function filterStocks(kw) {
+      if(!kw) filteredStocks = [...stocksDB];
+      else {
+        const w = kw.toLowerCase();
+        filteredStocks = stocksDB.filter(s => s.symbol.toLowerCase().includes(w) || s.name.includes(w));
+      }
+      renderStockLists();
+    }
+
+    // 视图切换
+    const views = ['market','watchlist','trade','analysis','assets'];
+    const navItems = document.querySelectorAll('.nav-item');
+    const sidebarItems = document.querySelectorAll('.sidebar-nav .nav-item');
+    function switchView(viewId) {
+      currentView = viewId;
+      views.forEach(v => document.getElementById(`view-${v}`).classList.add('hidden'));
+      document.getElementById(`view-${viewId}`).classList.remove('hidden');
+      [...navItems, ...sidebarItems].forEach(i => i.classList.toggle('active', i.dataset.view === viewId));
+      if(viewId === 'analysis') renderAnalysisModule();
+      if(viewId === 'trade') updateUI();
+    }
+
+    // 登录逻辑
+    function showLogin() { loginPage.classList.remove('hidden'); mainApp.classList.add('hidden'); isLoggedIn = false; }
+    function showMain() { loginPage.classList.add('hidden'); mainApp.classList.remove('hidden'); isLoggedIn = true; updateUI(); switchView('market'); }
+    document.getElementById('loginBtn').addEventListener('click', (e) => { e.preventDefault(); const u = document.getElementById('loginUsername').value.trim(); if(u) showMain(); });
+    document.getElementById('registerLink').addEventListener('click', e => { e.preventDefault(); showToast('注册功能开发中'); });
+    function logout() { showLogin(); }
+    document.getElementById('logoutBtnSidebar').addEventListener('click', logout);
+    document.getElementById('logoutBtnMobile').addEventListener('click', logout);
+
+    // 主题
+    const themeToggle = document.getElementById('themeToggle');
+    const loginThemeToggle = document.getElementById('loginThemeToggle');
+    function updateThemeIcon() {
+      const isDark = document.body.classList.contains('dark');
+      const icon = isDark ? 'fa-sun' : 'fa-moon';
+      if(themeToggle) themeToggle.className = `fas ${icon}`;
+      if(loginThemeToggle) loginThemeToggle.className = `fas ${icon}`;
+    }
+    function toggleTheme() { document.body.classList.toggle('dark'); updateThemeIcon(); }
+    themeToggle.addEventListener('click', toggleTheme);
+    loginThemeToggle.addEventListener('click', toggleTheme);
+    updateThemeIcon();
+
+    // 事件绑定
+    navItems.forEach(i => i.addEventListener('click', () => switchView(i.dataset.view)));
+    sidebarItems.forEach(i => i.addEventListener('click', () => switchView(i.dataset.view)));
+    document.getElementById('toggleSearchBtn').addEventListener('click', () => {
+      searchContainer.classList.toggle('active');
+      if(searchContainer.classList.contains('active')) searchInput.focus();
+      else { searchInput.value = ''; filterStocks(''); }
+    });
+    document.getElementById('clearSearchBtn').addEventListener('click', () => {
+      searchContainer.classList.remove('active');
+      searchInput.value = '';
+      filterStocks('');
+    });
+    searchInput.addEventListener('input', e => filterStocks(e.target.value));
+    document.querySelectorAll('.trade-tab').forEach(t => t.addEventListener('click', function(){
+      tradeType = this.dataset.trade;
+      document.querySelectorAll('.trade-tab').forEach(x => x.classList.remove('active'));
+      this.classList.add('active');
+      executeBtn.textContent = tradeType === 'buy' ? '确认买入' : '确认卖出';
+    }));
+    executeBtn.addEventListener('click', executeTrade);
+    document.addEventListener('click', e => {
+      const item = e.target.closest('.stock-item');
+      if(item) {
+        const sym = item.dataset.symbol;
+        const st = stocksDB.find(s => s.symbol === sym);
+        if(st) {
+          tradeSymbol.value = sym;
+          tradePrice.value = st.price.toFixed(2);
+          switchView('trade');
+        }
+      }
+      if(e.target.classList.contains('detail-trigger')) {
+        const signal = e.target.dataset.signal;
+        const detail = signalDetails[signal];
+        if(detail) {
+          document.getElementById('modalTitle').textContent = `${signal} · ${detail.code}`;
+          document.getElementById('modalBody').innerHTML = `
+            <div class="detail-kline"><div class="k-line-group" style="height:120px;">${Array(16).fill(0).map(() => `<div class="k-bar ${Math.random()>0.5?'up':'down'}" style="height:${30+Math.random()*50}px;"></div>`).join('')}</div></div>
+            <p><strong>判定逻辑：</strong>${detail.logic}</p>
+            ${detail.support ? `<p><span class="line-sample dashed-green"></span> 支撑位：${detail.support}</p>` : ''}
+            ${detail.resist ? `<p><span class="line-sample solid-blue"></span> 压力位：${detail.resist}</p>` : ''}
+            ${detail.break ? `<p><span class="line-sample solid-yellow"></span> 突破位：${detail.break}</p>` : ''}
+            <p><i class="fas fa-chart-line"></i> 信号说明：${detail.signal || '形态确认后可关注'}</p>
+            <p><i class="far fa-clock"></i> 历史统计：${detail.cases}</p>
+            <button class="trade-submit" style="margin-top:20px;" id="addToMonitorBtn">加入监控列表</button>
+          `;
+          document.getElementById('signalDetailModal').classList.remove('hidden');
+          document.getElementById('addToMonitorBtn').addEventListener('click', () => {
+            showToast(`已添加 ${detail.code} 到监控列表`);
+            document.getElementById('signalDetailModal').classList.add('hidden');
+          });
+        }
+      }
+      if(e.target.classList.contains('close-modal') || e.target.classList.contains('modal-overlay')) {
+        document.getElementById('signalDetailModal').classList.add('hidden');
+      }
+      if(e.target.classList.contains('toggle-switch')) {
+        e.target.classList.toggle('active');
+        showToast(`${e.target.dataset.alert==='pressure'?'压力线':e.target.dataset.alert==='tail'?'尾盘确认':'止损提醒'} ${e.target.classList.contains('active')?'开启':'关闭'}`);
+      }
+    });
+    document.querySelector('.fa-bell').addEventListener('click', () => showToast('暂无新通知'));
+    document.getElementById('editWatchlistLink').addEventListener('click', e => { e.preventDefault(); showToast('编辑自选股'); });
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.style.opacity = '1';
+      toast.textContent = msg;
+      clearTimeout(window.toastTimer);
+      window.toastTimer = setTimeout(() => toast.style.opacity = '0', 2000);
+    }
+
+    // 初始化
+    showLogin();
+  })();
+</script>
+</body>
+</html>

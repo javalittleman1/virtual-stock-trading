@@ -1,149 +1,174 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import { isTradingHour } from '@/lib/trading-rules';
-import { API_CONSTANTS } from '@/lib/constants';
 
 const ITICK_API_KEY = process.env.ITICK_API_KEY!;
-const ITICK_API_ENDPOINT = process.env.ITICK_API_ENDPOINT || 'https://api.itick.org/v1';
+const ITICK_BASE = 'https://api.itick.org/stock/quotes';
 
-// GET /api/cron/update-prices - 定时更新股票价格
+// iTick 真实响应字段映射
+interface ITickQuote {
+  s: string;   // 股票代码
+  ld: number;  // 昨收价
+  p: number;   // 当前价
+  o: number;   // 开盘价
+  h: number;   // 最高价
+  l: number;   // 最低价
+  v: number;   // 成交量（手）
+  tu: number;  // 成交额
+  ch: number;  // 涨跌额
+  chp: number; // 涨跌幅%
+  r: string;   // 市场（SH/SZ）
+}
+
+async function fetchITickBatch(region: string, codes: string[]): Promise<ITickQuote[]> {
+  const url = `${ITICK_BASE}?region=${region}&codes=${codes.join(',')}`;
+  const res = await fetch(url, {
+    headers: { 'token': ITICK_API_KEY },
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`iTick API error: ${res.status} - ${errText.slice(0, 200)}`);
+  }
+  const json = await res.json();
+  if (json.code !== 0 || !json.data) {
+    console.error('iTick non-zero code:', json);
+    return [];
+  }
+  return Object.values(json.data) as ITickQuote[];
+}
+
+/**
+ * GET /api/cron/update-prices
+ * 
+ * 支持参数：
+ * - force=1        跳过交易时间检查
+ * - offset=N       从第 N 只股票开始（默认 0）
+ * - limit=N        每次更新 N 只（默认 3，最多 3，受 iTick 免费版限制）
+ * 
+ * 设计原则：每次只更新一批（3只），由 Dashboard 定时按轮换方式更新全部股票。
+ * 避免一次性请求 55 只触发 429 或超时。
+ */
 export async function GET(request: NextRequest) {
   try {
     // 验证 Cron Secret（如果配置了）
     const cronSecret = request.headers.get('x-cron-secret');
     if (process.env.CRON_SECRET && cronSecret !== process.env.CRON_SECRET) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // 检查是否在交易时间
-    if (!isTradingHour()) {
-      return NextResponse.json({ 
-        message: '非交易时段，跳过更新',
-        isTradingHour: false 
-      });
+    // 检查是否在交易时间（非交易时段允许通过 force=1 跳过检查）
+    const force = request.nextUrl.searchParams.get('force') === '1';
+    if (!force && !isTradingHour()) {
+      return NextResponse.json({ message: '非交易时段，跳过更新', isTradingHour: false });
     }
 
-    const supabase = await createClient();
+    // 分页参数：每次只更新一批 3 只
+    const offset = parseInt(request.nextUrl.searchParams.get('offset') || '0');
+    const limit = Math.min(parseInt(request.nextUrl.searchParams.get('limit') || '3'), 3);
 
-    // 获取所有股票代码
+    const supabase = createServiceClient();
+
+    // 获取需要更新的股票（按 updated_at 升序，优先更新最旧的）
     const { data: stocks, error: stocksError } = await supabase
       .from('stocks')
       .select('symbol')
-      .order('symbol');
+      .order('updated_at', { ascending: true })
+      .range(offset, offset + limit - 1);
 
     if (stocksError) {
-      console.error('Error fetching stocks:', stocksError);
-      return NextResponse.json(
-        { error: '获取股票列表失败' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: '获取股票列表失败: ' + stocksError.message }, { status: 500 });
     }
 
     if (!stocks || stocks.length === 0) {
-      return NextResponse.json({ 
-        message: '没有需要更新的股票',
-        updated: 0 
-      });
+      return NextResponse.json({ message: '没有需要更新的股票', updated: 0 });
     }
 
-    const symbols = stocks.map(s => s.symbol);
-    const batchSize = API_CONSTANTS.ITICK_BATCH_SIZE;
+    // 按市场分组
+    const shSymbols: string[] = [];
+    const szSymbols: string[] = [];
+    for (const s of stocks) {
+      if ((s.symbol as string).startsWith('6')) {
+        shSymbols.push(s.symbol as string);
+      } else {
+        szSymbols.push(s.symbol as string);
+      }
+    }
+
+    const now = new Date().toISOString();
     let updatedCount = 0;
     let errorCount = 0;
 
-    // 分批获取行情数据
-    for (let i = 0; i < symbols.length; i += batchSize) {
-      const batch = symbols.slice(i, i + batchSize);
-      
+    // 串行请求沪市和深市（避免并发触发限速）
+    const allQuotes: ITickQuote[] = [];
+
+    if (shSymbols.length > 0) {
       try {
-        const response = await fetch(
-          `${ITICK_API_ENDPOINT}/quotes?symbols=${batch.join(',')}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${ITICK_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            // 10秒超时
-            signal: AbortSignal.timeout(10000),
-          }
-        );
-
-        if (!response.ok) {
-          console.error(`API error for batch ${i}:`, response.statusText);
-          errorCount += batch.length;
-          continue;
-        }
-
-        const result = await response.json();
-        
-        if (!result.data || !Array.isArray(result.data)) {
-          console.error('Invalid API response:', result);
-          errorCount += batch.length;
-          continue;
-        }
-
-        // 准备更新数据
-        const updates = result.data.map((item: {
-          symbol: string;
-          price?: number;
-          prev_close?: number;
-          open?: number;
-          high?: number;
-          low?: number;
-          volume?: number;
-        }) => ({
-          symbol: item.symbol,
-          current_price: item.price || 0,
-          prev_close: item.prev_close || 0,
-          open: item.open || 0,
-          high: item.high || 0,
-          low: item.low || 0,
-          volume: item.volume || 0,
-          updated_at: new Date().toISOString(),
-        }));
-
-        // 批量更新到 Supabase
-        const { error: upsertError } = await supabase
-          .from('stocks')
-          .upsert(updates, { 
-            onConflict: 'symbol',
-          });
-
-        if (upsertError) {
-          console.error('Error upserting stocks:', upsertError);
-          errorCount += updates.length;
-        } else {
-          updatedCount += updates.length;
-        }
-
-      } catch (error) {
-        console.error(`Error processing batch ${i}:`, error);
-        errorCount += batch.length;
-      }
-
-      // 添加小延迟，避免请求过快
-      if (i + batchSize < symbols.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        const quotes = await fetchITickBatch('sh', shSymbols);
+        allQuotes.push(...quotes);
+      } catch (e) {
+        console.error('SH batch error:', e);
+        errorCount += shSymbols.length;
       }
     }
+
+    if (szSymbols.length > 0) {
+      // 如果沪市和深市都有，两次请求间加短暂延迟
+      if (shSymbols.length > 0) {
+        await new Promise(r => setTimeout(r, 2000));
+      }
+      try {
+        const quotes = await fetchITickBatch('sz', szSymbols);
+        allQuotes.push(...quotes);
+      } catch (e) {
+        console.error('SZ batch error:', e);
+        errorCount += szSymbols.length;
+      }
+    }
+
+    if (allQuotes.length > 0) {
+      const now2 = now;
+      // 分别更新每只股票的行情字段（不覆盖 name 等基础字段）
+      const updateResults = await Promise.all(
+        allQuotes.map(async (q) => {
+          const { error } = await supabase
+            .from('stocks')
+            .update({
+              current_price: q.p ?? 0,
+              prev_close: q.ld ?? 0,
+              open: q.o ?? 0,
+              high: q.h ?? 0,
+              low: q.l ?? 0,
+              volume: q.v ?? 0,
+              updated_at: now2,
+            })
+            .eq('symbol', q.s);
+          return error ? (0 as number) : (1 as number);
+        })
+      );
+      updatedCount = updateResults.reduce((sum, v) => sum + v, 0);
+      errorCount += updateResults.filter(v => v === 0).length;
+    }
+
+    // 获取总数，用于前端轮换计算
+    const { count: totalCount } = await supabase
+      .from('stocks')
+      .select('*', { count: 'exact', head: true });
 
     return NextResponse.json({
       success: true,
       updated: updatedCount,
       errors: errorCount,
-      total: symbols.length,
-      isTradingHour: true,
-      timestamp: new Date().toISOString(),
+      offset,
+      limit,
+      total: totalCount || 0,
+      nextOffset: offset + limit < (totalCount || 0) ? offset + limit : 0,
+      isTradingHour: isTradingHour(),
+      timestamp: now,
     });
 
   } catch (error) {
     console.error('Error in update-prices API:', error);
-    return NextResponse.json(
-      { error: '服务器内部错误' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: '服务器内部错误' }, { status: 500 });
   }
 }

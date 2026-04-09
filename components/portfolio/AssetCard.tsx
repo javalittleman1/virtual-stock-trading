@@ -1,91 +1,62 @@
 'use client';
 
-import { Card } from '@/components/ui/card';
 import { useUserStore } from '@/stores/useUserStore';
-import { formatCurrency, cn } from '@/lib/utils';
-import { 
-  Wallet, 
-  TrendingUp, 
-  TrendingDown, 
-  PieChart,
-  DollarSign
-} from 'lucide-react';
+import { formatCurrency } from '@/lib/utils';
+import { Eye } from 'lucide-react';
 
 export function AssetCard() {
   const { assetOverview, isLoading } = useUserStore();
 
-  if (isLoading || !assetOverview) {
+  const totalAssets = assetOverview?.total_assets ?? 0;
+  const availableBalance = assetOverview?.available_balance ?? 0;
+  const positionValue = assetOverview?.position_value ?? 0;
+  const todayPnl = assetOverview?.daily_profit_loss ?? 0;
+
+  if (isLoading) {
     return (
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i} className="p-4 h-24 animate-pulse bg-muted" />
-        ))}
-      </div>
+      <div
+        className="rounded-[28px] mx-0 p-5 h-36 animate-pulse"
+        style={{ background: 'var(--guzhang-asset-gradient)' }}
+      />
     );
   }
 
-  const cards = [
-    {
-      title: '总资产',
-      value: assetOverview.total_assets,
-      icon: Wallet,
-      color: 'text-blue-500',
-      bgColor: 'bg-blue-50 dark:bg-blue-950',
-    },
-    {
-      title: '可用资金',
-      value: assetOverview.available_balance,
-      icon: DollarSign,
-      color: 'text-green-500',
-      bgColor: 'bg-green-50 dark:bg-green-950',
-    },
-    {
-      title: '持仓市值',
-      value: assetOverview.position_value,
-      icon: PieChart,
-      color: 'text-purple-500',
-      bgColor: 'bg-purple-50 dark:bg-purple-950',
-    },
-    {
-      title: '累计盈亏',
-      value: assetOverview.total_profit_loss,
-      percent: assetOverview.total_profit_loss_percent,
-      icon: assetOverview.total_profit_loss >= 0 ? TrendingUp : TrendingDown,
-      color: assetOverview.total_profit_loss >= 0 ? 'text-red-500' : 'text-green-500',
-      bgColor: assetOverview.total_profit_loss >= 0 
-        ? 'bg-red-50 dark:bg-red-950' 
-        : 'bg-green-50 dark:bg-green-950',
-    },
-  ];
-
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      {cards.map((card) => {
-        const Icon = card.icon;
-        return (
-          <Card key={card.title} className="p-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">{card.title}</p>
-                <p className={cn("text-xl font-bold mt-1", card.color)}>
-                  {formatCurrency(card.value)}
-                </p>
-                {card.percent !== undefined && (
-                  <p className={cn(
-                    "text-sm mt-1",
-                    card.percent >= 0 ? "text-red-500" : "text-green-500"
-                  )}>
-                    {card.percent >= 0 ? '+' : ''}{card.percent.toFixed(2)}%
-                  </p>
-                )}
-              </div>
-              <div className={cn("p-2 rounded-lg", card.bgColor)}>
-                <Icon className={cn("h-5 w-5", card.color)} />
-              </div>
-            </div>
-          </Card>
-        );
-      })}
+    <div
+      className="rounded-[28px] p-5 text-white"
+      style={{ background: 'var(--guzhang-asset-gradient)' }}
+    >
+      {/* 标题行 */}
+      <div className="flex justify-between items-center opacity-90 mb-1">
+        <span className="text-sm">总资产</span>
+        <Eye className="h-4 w-4" />
+      </div>
+
+      {/* 总资产金额 */}
+      <div className="text-[34px] font-bold mb-3 leading-tight">
+        {formatCurrency(totalAssets)}
+      </div>
+
+      {/* 小指标 */}
+      <div className="flex gap-5 text-sm flex-wrap">
+        <div className="flex gap-1">
+          <span className="opacity-80">可用</span>
+          <span className="font-medium">{formatCurrency(availableBalance)}</span>
+        </div>
+        <div className="flex gap-1">
+          <span className="opacity-80">市值</span>
+          <span className="font-medium">{formatCurrency(positionValue)}</span>
+        </div>
+        <div className="flex gap-1">
+          <span className="opacity-80">今日</span>
+          <span
+            className="font-medium"
+            style={{ color: todayPnl >= 0 ? '#ff7b7b' : '#4ade80' }}
+          >
+            {todayPnl >= 0 ? '+' : ''}{formatCurrency(todayPnl)}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }

@@ -9,7 +9,8 @@ import { useUserStore } from '@/stores/useUserStore';
 import { useTradeStore } from '@/stores/useTradeStore';
 import { useStockStore } from '@/stores/useStockStore';
 import { useUIStore } from '@/stores/useUIStore';
-import { cn } from '@/lib/utils';
+import { AssetCard } from '@/components/portfolio/AssetCard';
+import { UI_CONSTANTS } from '@/lib/constants';
 
 export default function DashboardLayout({
   children,
@@ -17,10 +18,10 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { user, isInitialized } = useAuthStore();
-  const { subscribeProfile } = useUserStore();
-  const { subscribeHoldings, subscribeOrders } = useTradeStore();
+  const { calculateAssetOverview, subscribeProfile } = useUserStore();
+  const { holdings, subscribeHoldings, subscribeOrders } = useTradeStore();
   const { subscribePrices } = useStockStore();
-  const { sidebarCollapsed, setIsMobile } = useUIStore();
+  const { setIsMobile } = useUIStore();
 
   // 初始化认证状态
   useEffect(() => {
@@ -43,9 +44,28 @@ export default function DashboardLayout({
     if (!user?.id) return;
 
     // 加载初始数据
-    useUserStore.getState().fetchProfile();
-    useTradeStore.getState().fetchHoldings();
-    useStockStore.getState().fetchWatchlist();
+    const init = async () => {
+      await useUserStore.getState().fetchProfile();
+      await useTradeStore.getState().fetchHoldings();
+      await useStockStore.getState().fetchWatchlist();
+      await useStockStore.getState().fetchStocks();
+
+      // 计算资产概览
+      const { holdings: h } = useTradeStore.getState();
+      if (h.length > 0) {
+        const positions = h.map(p => ({
+          quantity: p.quantity,
+          avg_cost: p.avg_cost,
+          current_price: p.stock?.current_price ?? p.avg_cost,
+        }));
+        useUserStore.getState().calculateAssetOverview(positions);
+      } else {
+        // 没有持仓时，也要初始化资产概览（全部为可用余额）
+        useUserStore.getState().calculateAssetOverview([]);
+      }
+    };
+
+    init();
 
     // 建立实时订阅
     const unsubProfile = subscribeProfile(user.id);
@@ -53,15 +73,50 @@ export default function DashboardLayout({
     const unsubOrders = subscribeOrders(user.id);
     const unsubPrices = subscribePrices();
 
+    // 定时刷新行情（每 30 秒轮换更新 3 只，遇到末尾则重新从头）
+    let priceUpdateOffset = 0;
+    const priceTimer = setInterval(async () => {
+      // 轮换调用 update-prices，每次更新 3 只
+      try {
+        const res = await fetch(`/api/cron/update-prices?force=1&offset=${priceUpdateOffset}&limit=3`);
+        const data = await res.json();
+        if (data.nextOffset !== undefined) {
+          priceUpdateOffset = data.nextOffset; // 下次从这里继续
+        }
+      } catch { /* 忽略错误 */ }
+      // 刷新前端显示的 stocks
+      await useStockStore.getState().fetchStocks();
+      // 刷新后重新计算资产
+      const { holdings: h } = useTradeStore.getState();
+      const positions = h.map(p => ({
+        quantity: p.quantity,
+        avg_cost: p.avg_cost,
+        current_price: p.stock?.current_price ?? p.avg_cost,
+      }));
+      useUserStore.getState().calculateAssetOverview(positions);
+    }, UI_CONSTANTS.REFRESH_INTERVAL);
+
     return () => {
       unsubProfile();
       unsubHoldings();
       unsubOrders();
       unsubPrices();
+      clearInterval(priceTimer);
     };
   }, [user?.id, subscribeProfile, subscribeHoldings, subscribeOrders, subscribePrices]);
 
-  // 未登录时不渲染（中间件会处理重定向）
+  // 当持仓变化时重新计算资产概览
+  useEffect(() => {
+    if (!holdings.length) return;
+    const positions = holdings.map(p => ({
+      quantity: p.quantity,
+      avg_cost: p.avg_cost,
+      current_price: p.stock?.current_price ?? p.avg_cost,
+    }));
+    calculateAssetOverview(positions);
+  }, [holdings, calculateAssetOverview]);
+
+  // 未初始化时显示 loading
   if (!isInitialized) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -71,26 +126,31 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div
+      className="min-h-screen flex flex-col"
+      style={{ background: 'var(--guzhang-bg-body)' }}
+    >
       {/* 顶部导航 */}
       <Header />
 
-      {/* 侧边栏（桌面端） */}
-      <Sidebar />
+      {/* 主体区域：桌面端侧边栏 + 内容 */}
+      <div className="flex flex-1">
+        {/* 左侧边栏（桌面端） */}
+        <Sidebar />
 
-      {/* 主内容区 */}
-      <main
-        className={cn(
-          "transition-all duration-300",
-          "pt-14 pb-16 lg:pb-0", // 为顶部导航和底部导航留出空间
-          "lg:ml-56", // 桌面端为侧边栏留出空间
-          sidebarCollapsed && "lg:ml-16" // 侧边栏折叠时
-        )}
-      >
-        <div className="container p-4 lg:p-6">
-          {children}
-        </div>
-      </main>
+        {/* 主内容区 */}
+        <main className="flex-1 min-w-0">
+          <div
+            className="mx-auto max-w-[900px] px-4 py-4 pb-24 lg:pb-6"
+          >
+            {/* 资产卡片 */}
+            <div className="mb-4">
+              <AssetCard />
+            </div>
+            {children}
+          </div>
+        </main>
+      </div>
 
       {/* 底部导航（移动端） */}
       <BottomNav />

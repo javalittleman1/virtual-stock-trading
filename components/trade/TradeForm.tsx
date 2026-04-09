@@ -1,20 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Stock, Portfolio } from '@/types';
+import { Stock } from '@/types';
 import { useTradeStore } from '@/stores/useTradeStore';
 import { useUserStore } from '@/stores/useUserStore';
 import { useUIStore } from '@/stores/useUIStore';
-import { 
-  formatCurrency, 
-  formatNumber,
-  cn 
-} from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 import { 
   isTradingHour, 
   getNextTradingTime,
@@ -23,7 +15,7 @@ import {
   calculateTotalCost,
 } from '@/lib/trading-rules';
 import { TRADE_CONSTANTS } from '@/lib/constants';
-import { ArrowUp, ArrowDown, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 
 interface TradeFormProps {
   stock?: Stock;
@@ -60,11 +52,12 @@ export function TradeForm({ stock, defaultType = 'buy' }: TradeFormProps) {
 
   if (!stock) {
     return (
-      <Card className="p-6">
-        <div className="text-center text-muted-foreground py-8">
-          请选择要交易的股票
-        </div>
-      </Card>
+      <div
+        className="rounded-[28px] p-6 text-center"
+        style={{ background: 'var(--guzhang-bg-app)', border: '1px solid var(--guzhang-border-light)' }}
+      >
+        <div style={{ color: 'var(--guzhang-text-secondary)' }}>请选择要交易的股票</div>
+      </div>
     );
   }
 
@@ -75,10 +68,10 @@ export function TradeForm({ stock, defaultType = 'buy' }: TradeFormProps) {
   const upperLimit = getUpperLimitPrice(stock.prev_close, stock.symbol);
   const lowerLimit = getLowerLimitPrice(stock.prev_close, stock.symbol);
 
-  // 计算交易信息
-  const tradeInfo = priceNum > 0 && quantityNum > 0
+  // 计算交易信息（备用）
+  void (priceNum > 0 && quantityNum > 0
     ? calculateTotalCost(priceNum, quantityNum, type)
-    : null;
+    : null);
 
   // 最大可买数量
   const maxBuyQuantity = assetOverview 
@@ -134,166 +127,107 @@ export function TradeForm({ stock, defaultType = 'buy' }: TradeFormProps) {
   };
 
   return (
-    <Card className="p-4">
-      {/* 股票信息 */}
-      <div className="mb-4 pb-4 border-b">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-semibold text-lg">{stock.name}</h3>
-            <p className="text-sm text-muted-foreground">{stock.symbol}</p>
-          </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold">{formatCurrency(currentPrice)}</div>
-            <div className={cn(
-              "text-sm",
-              stock.current_price >= stock.prev_close ? "text-red-500" : "text-green-500"
-            )}>
-              {stock.current_price >= stock.prev_close ? '+' : ''}
-              {((stock.current_price - stock.prev_close) / stock.prev_close * 100).toFixed(2)}%
-            </div>
-          </div>
-        </div>
+    <div
+      className="rounded-[28px] p-6"
+      style={{ background: 'var(--guzhang-bg-app)', border: '1px solid var(--guzhang-border-light)' }}
+    >
+      {/* 买卖切换 */}
+      <div className="flex gap-2 mb-6">
+        {(['buy', 'sell'] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setType(t)}
+            className="flex-1 py-3 rounded-[40px] font-semibold transition-colors"
+            style={{
+              background: type === t ? '#1e3a5f' : 'var(--guzhang-stat-bg)',
+              color: type === t ? 'white' : 'var(--guzhang-text-secondary)',
+            }}
+          >
+            {t === 'buy' ? '买入' : '卖出'}
+          </button>
+        ))}
       </div>
-
+  
       {/* 交易时间提示 */}
       {!canTrade && (
-        <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg flex items-center gap-2 text-sm text-yellow-800 dark:text-yellow-200">
-          <AlertCircle className="h-4 w-4" />
+        <div
+          className="mb-4 p-3 rounded-xl flex items-center gap-2 text-sm"
+          style={{ background: 'var(--guzhang-warning-bg)', borderLeft: '3px solid var(--guzhang-warning-border)' }}
+        >
+          <AlertCircle className="h-4 w-4 shrink-0" />
           <span>非交易时间，{getNextTradingTime()}</span>
         </div>
       )}
-
-      {/* 买卖类型切换 */}
-      <Tabs value={type} onValueChange={(v) => setType(v as 'buy' | 'sell')} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger 
-            value="buy"
-            className="data-[state=active]:bg-red-500 data-[state=active]:text-white"
-          >
-            买入
-          </TabsTrigger>
-          <TabsTrigger 
-            value="sell"
-            className="data-[state=active]:bg-green-500 data-[state=active]:text-white"
-          >
-            卖出
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value={type} className="mt-4 space-y-4">
-          {/* 可用资金/持仓 */}
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">
-              {type === 'buy' ? '可用资金' : '可卖数量'}
-            </span>
-            <span className="font-medium">
-              {type === 'buy' 
-                ? formatCurrency(assetOverview?.available_balance || 0)
-                : formatNumber(maxSellQuantity) + '股'
-              }
-            </span>
-          </div>
-
-          {/* 价格输入 */}
-          <div className="space-y-2">
-            <Label htmlFor="price">委托价格</Label>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setPrice(lowerLimit.toFixed(2))}
-                className="text-green-600"
-              >
-                <ArrowDown className="h-3 w-3 mr-1" />
-                跌停
-              </Button>
-              <Input
-                id="price"
-                type="number"
-                step="0.01"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                className="flex-1"
-                placeholder="请输入价格"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setPrice(upperLimit.toFixed(2))}
-                className="text-red-600"
-              >
-                <ArrowUp className="h-3 w-3 mr-1" />
-                涨停
-              </Button>
-            </div>
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>跌停: {formatCurrency(lowerLimit)}</span>
-              <span>涨停: {formatCurrency(upperLimit)}</span>
-            </div>
-          </div>
-
-          {/* 数量输入 */}
-          <div className="space-y-2">
-            <Label htmlFor="quantity">委托数量</Label>
-            <div className="flex gap-2">
-              <Input
-                id="quantity"
-                type="number"
-                step="100"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                className="flex-1"
-                placeholder={`最小单位${TRADE_CONSTANTS.MIN_TRADE_QUANTITY}股`}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setQuantity(type === 'buy' ? maxBuyQuantity.toString() : maxSellQuantity.toString())}
-              >
-                全仓
-              </Button>
-            </div>
-          </div>
-
-          {/* 交易概览 */}
-          {tradeInfo && (
-            <div className="p-3 bg-muted rounded-lg space-y-1 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">成交金额</span>
-                <span>{formatCurrency(tradeInfo.amount)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">手续费</span>
-                <span>{formatCurrency(tradeInfo.fee)}</span>
-              </div>
-              <div className="flex justify-between font-medium pt-1 border-t">
-                <span>{type === 'buy' ? '应付总额' : '实收金额'}</span>
-                <span className={type === 'buy' ? 'text-red-500' : 'text-green-500'}>
-                  {formatCurrency(tradeInfo.total)}
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* 提交按钮 */}
-          <Button
-            onClick={handleSubmit}
-            disabled={!canTrade || isSubmitting || !priceNum || !quantityNum}
-            className={cn(
-              "w-full",
-              type === 'buy' 
-                ? "bg-red-500 hover:bg-red-600" 
-                : "bg-green-500 hover:bg-green-600"
-            )}
-            size="lg"
-          >
-            {isSubmitting ? '提交中...' : (type === 'buy' ? '买入' : '卖出')}
-          </Button>
-        </TabsContent>
-      </Tabs>
-    </Card>
+  
+      {/* 股票代码 */}
+      <div className="mb-5">
+        <label className="text-sm mb-1.5 block" style={{ color: 'var(--guzhang-text-secondary)' }}>股票代码</label>
+        <div
+          className="w-full px-4 py-4 rounded-[20px] font-medium"
+          style={{
+            background: 'var(--guzhang-input-bg)',
+            border: '1.5px solid var(--guzhang-input-border)',
+            color: 'var(--guzhang-text-primary)',
+          }}
+        >
+          {stock.symbol} · {stock.name}
+        </div>
+      </div>
+  
+      {/* 委托价格 */}
+      <div className="mb-5">
+        <label className="text-sm mb-1.5 block" style={{ color: 'var(--guzhang-text-secondary)' }}>委托价格</label>
+        <Input
+          type="number"
+          step="0.01"
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
+          className="h-14 rounded-[20px] text-base px-4"
+          style={{
+            background: 'var(--guzhang-input-bg)',
+            border: '1.5px solid var(--guzhang-input-border)',
+            color: 'var(--guzhang-text-primary)',
+          }}
+          placeholder="请输入价格"
+        />
+        <div className="flex justify-between mt-1.5 text-xs" style={{ color: 'var(--guzhang-text-secondary)' }}>
+          <button onClick={() => setPrice(lowerLimit.toFixed(2))} className="text-[#0f9d6e]">跌停 {lowerLimit.toFixed(2)}</button>
+          <button onClick={() => setPrice(upperLimit.toFixed(2))} className="text-[#d83a3a]">涨停 {upperLimit.toFixed(2)}</button>
+        </div>
+      </div>
+  
+      {/* 委托数量 */}
+      <div className="mb-5">
+        <label className="text-sm mb-1.5 block" style={{ color: 'var(--guzhang-text-secondary)' }}>数量 (股)</label>
+        <Input
+          type="number"
+          step="100"
+          value={quantity}
+          onChange={(e) => setQuantity(e.target.value)}
+          className="h-14 rounded-[20px] text-base px-4"
+          style={{
+            background: 'var(--guzhang-input-bg)',
+            border: '1.5px solid var(--guzhang-input-border)',
+            color: 'var(--guzhang-text-primary)',
+          }}
+          placeholder={`最小单位${TRADE_CONSTANTS.MIN_TRADE_QUANTITY}股`}
+        />
+      </div>
+  
+      {/* 提交按鈕 */}
+      <button
+        onClick={handleSubmit}
+        disabled={!canTrade || isSubmitting || !priceNum || !quantityNum}
+        className="w-full py-[18px] rounded-[48px] font-bold text-[18px] text-white transition-opacity disabled:opacity-50"
+        style={{ background: '#1e3a5f' }}
+      >
+        {isSubmitting ? '提交中...' : `确认${type === 'buy' ? '买入' : '卖出'}`}
+      </button>
+  
+      {/* 可用资金提示 */}
+      <p className="text-center text-sm mt-4" style={{ color: 'var(--guzhang-text-secondary)' }}>
+        可用: {formatCurrency(type === 'buy' ? (assetOverview?.available_balance || 0) : (maxSellQuantity * priceNum))} · 手续费万0.025%
+      </p>
+    </div>
   );
 }
