@@ -1,109 +1,214 @@
-<a href="https://demo-nextjs-with-supabase.vercel.app/">
-  <img alt="Next.js and Supabase Starter Kit - the fastest way to build apps with Next.js and Supabase" src="https://demo-nextjs-with-supabase.vercel.app/opengraph-image.png">
-  <h1 align="center">Next.js and Supabase Starter Kit</h1>
-</a>
+# 股掌 - 模拟炒股应用
 
 <p align="center">
- The fastest way to build apps with Next.js and Supabase
+  <strong>仿真交易 · 智能复盘</strong>
 </p>
 
 <p align="center">
-  <a href="#features"><strong>Features</strong></a> ·
-  <a href="#demo"><strong>Demo</strong></a> ·
-  <a href="#deploy-to-vercel"><strong>Deploy to Vercel</strong></a> ·
-  <a href="#clone-and-run-locally"><strong>Clone and run locally</strong></a> ·
-  <a href="#feedback-and-issues"><strong>Feedback and issues</strong></a>
-  <a href="#more-supabase-examples"><strong>More Examples</strong></a>
+  基于 Next.js + Supabase 构建的全栈模拟炒股应用，接入真实 A 股行情数据
 </p>
-<br/>
 
-## Features
+---
 
-- Works across the entire [Next.js](https://nextjs.org) stack
-  - App Router
-  - Pages Router
-  - Proxy
-  - Client
-  - Server
-  - It just works!
-- supabase-ssr. A package to configure Supabase Auth to use cookies
-- Password-based authentication block installed via the [Supabase UI Library](https://supabase.com/ui/docs/nextjs/password-based-auth)
-- Styling with [Tailwind CSS](https://tailwindcss.com)
-- Components with [shadcn/ui](https://ui.shadcn.com/)
-- Optional deployment with [Supabase Vercel Integration and Vercel deploy](#deploy-your-own)
-  - Environment variables automatically assigned to Vercel project
+## 功能特性
 
-## Demo
+### 📊 行情模块
+- 接入 iTick API 获取真实 A 股实时行情
+- 股票搜索与筛选
+- 分页轮换更新价格，避免 API 限速
+- 涨跌幅、成交量等实时展示
 
-You can view a fully working demo at [demo-nextjs-with-supabase.vercel.app](https://demo-nextjs-with-supabase.vercel.app/).
+### 💰 交易模块
+- 买入/卖出委托下单
+- 交易时间校验（A 股交易时段：9:30-11:30, 13:00-15:00）
+- 涨跌停价格限制
+- 手续费自动计算（万 0.025%）
+- T+1 交易规则校验
 
-## Deploy to Vercel
+### 📈 持仓管理
+- 实时持仓列表
+- 盈亏计算与展示
+- 持仓市值统计
 
-Vercel deployment will guide you through creating a Supabase account and project.
+### ⭐ 自选股
+- 添加/移除自选股
+- 自选股行情实时更新
 
-After installation of the Supabase integration, all relevant environment variables will be assigned to the project so the deployment is fully functioning.
+### 📉 分析模块
+- 交易次数统计
+- 胜率计算
+- 总收益率展示
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fnext.js%2Ftree%2Fcanary%2Fexamples%2Fwith-supabase&project-name=nextjs-with-supabase&repository-name=nextjs-with-supabase&demo-title=nextjs-with-supabase&demo-description=This+starter+configures+Supabase+Auth+to+use+cookies%2C+making+the+user%27s+session+available+throughout+the+entire+Next.js+app+-+Client+Components%2C+Server+Components%2C+Route+Handlers%2C+Server+Actions+and+Middleware.&demo-url=https%3A%2F%2Fdemo-nextjs-with-supabase.vercel.app%2F&external-id=https%3A%2F%2Fgithub.com%2Fvercel%2Fnext.js%2Ftree%2Fcanary%2Fexamples%2Fwith-supabase&demo-image=https%3A%2F%2Fdemo-nextjs-with-supabase.vercel.app%2Fopengraph-image.png)
+### 💵 资产模块
+- 总资产概览
+- 可用余额
+- 持仓市值
+- 累计收益
 
-The above will also clone the Starter kit to your GitHub, you can clone that locally and develop locally.
+---
 
-If you wish to just develop locally and not deploy to Vercel, [follow the steps below](#clone-and-run-locally).
+## 技术栈
 
-## Clone and run locally
+| 技术 | 说明 |
+|------|------|
+| [Next.js 16](https://nextjs.org/) | React 全栈框架，App Router |
+| [Supabase](https://supabase.com/) | 后端即服务（数据库、认证、实时订阅） |
+| [Zustand](https://github.com/pmndrs/zustand) | 轻量级状态管理 |
+| [shadcn/ui](https://ui.shadcn.com/) | React UI 组件库 |
+| [Tailwind CSS](https://tailwindcss.com/) | 原子化 CSS 框架 |
+| [Vercel](https://vercel.com/) | 部署平台 |
+| [iTick API](https://itick.io/) | 股票行情数据源 |
 
-1. You'll first need a Supabase project which can be made [via the Supabase dashboard](https://database.new)
+---
 
-2. Create a Next.js app using the Supabase Starter template npx command
+## 项目结构
 
-   ```bash
-   npx create-next-app --example with-supabase with-supabase-app
-   ```
+```
+├── app/                    # Next.js App Router
+│   ├── (dashboard)/        # 仪表板页面（需登录）
+│   │   ├── analysis/       # 分析页
+│   │   ├── portfolio/      # 资产页
+│   │   ├── stocks/         # 行情页
+│   │   ├── trade/          # 交易页
+│   │   └── watchlist/      # 自选股页
+│   ├── api/                # API 路由
+│   │   ├── stocks/         # 股票行情 API
+│   │   ├── trade/          # 交易相关 API
+│   │   ├── user/           # 用户相关 API
+│   │   └── watchlist/      # 自选股 API
+│   └── auth/               # 认证页面
+├── components/             # React 组件
+│   ├── layout/             # 布局组件
+│   ├── portfolio/          # 持仓相关组件
+│   ├── stocks/             # 股票相关组件
+│   ├── trade/              # 交易相关组件
+│   └── ui/                 # shadcn/ui 基础组件
+├── lib/                    # 工具函数
+│   ├── supabase/           # Supabase 客户端配置
+│   ├── trading-rules.ts    # 交易规则引擎
+│   └── constants.ts        # 常量定义
+├── stores/                 # Zustand 状态管理
+│   ├── useAuthStore.ts     # 认证状态
+│   ├── useStockStore.ts    # 股票数据状态
+│   ├── useTradeStore.ts    # 交易状态
+│   └── useUserStore.ts     # 用户数据状态
+├── types/                  # TypeScript 类型定义
+└── supabase/               # 数据库 schema 和迁移脚本
+```
 
-   ```bash
-   yarn create next-app --example with-supabase with-supabase-app
-   ```
+---
 
-   ```bash
-   pnpm create next-app --example with-supabase with-supabase-app
-   ```
+## 快速开始
 
-3. Use `cd` to change into the app's directory
+### 环境要求
 
-   ```bash
-   cd with-supabase-app
-   ```
+- Node.js 18+
+- pnpm（推荐）或 npm
 
-4. Rename `.env.example` to `.env.local` and update the following:
+### 1. 克隆项目
 
-  ```env
-  NEXT_PUBLIC_SUPABASE_URL=[INSERT SUPABASE PROJECT URL]
-  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=[INSERT SUPABASE PROJECT API PUBLISHABLE OR ANON KEY]
-  ```
-  > [!NOTE]
-  > This example uses `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, which refers to Supabase's new **publishable** key format.
-  > Both legacy **anon** keys and new **publishable** keys can be used with this variable name during the transition period. Supabase's dashboard may show `NEXT_PUBLIC_SUPABASE_ANON_KEY`; its value can be used in this example.
-  > See the [full announcement](https://github.com/orgs/supabase/discussions/29260) for more information.
+```bash
+git clone https://github.com/your-username/virtual-stock-trading.git
+cd virtual-stock-trading
+```
 
-  Both `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` can be found in [your Supabase project's API settings](https://supabase.com/dashboard/project/_?showConnect=true)
+### 2. 安装依赖
 
-5. You can now run the Next.js local development server:
+```bash
+pnpm install
+```
 
-   ```bash
-   npm run dev
-   ```
+### 3. 配置环境变量
 
-   The starter kit should now be running on [localhost:3000](http://localhost:3000/).
+创建 `.env.local` 文件：
 
-6. This template comes with the default shadcn/ui style initialized. If you instead want other ui.shadcn styles, delete `components.json` and [re-install shadcn/ui](https://ui.shadcn.com/docs/installation/next)
+```env
+# Supabase 配置
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
-> Check out [the docs for Local Development](https://supabase.com/docs/guides/getting-started/local-development) to also run Supabase locally.
+# iTick API（股票行情数据）
+ITICK_API_KEY=your_itick_api_key
+```
 
-## Feedback and issues
+> 在 [Supabase Dashboard](https://supabase.com/dashboard) 的 Project Settings > API 中获取相关密钥
 
-Please file feedback and issues over on the [Supabase GitHub org](https://github.com/supabase/supabase/issues/new/choose).
+### 4. 初始化数据库
 
-## More Supabase examples
+在 Supabase SQL Editor 中执行 `supabase/schema.sql`
 
-- [Next.js Subscription Payments Starter](https://github.com/vercel/nextjs-subscription-payments)
-- [Cookie-based Auth and the Next.js 13 App Router (free course)](https://youtube.com/playlist?list=PL5S4mPUpp4OtMhpnp93EFSo42iQ40XjbF)
-- [Supabase Auth and the Next.js App Router](https://github.com/supabase/supabase/tree/master/examples/auth/nextjs)
+### 5. 启动开发服务器
+
+```bash
+pnpm dev
+```
+
+访问 [http://localhost:3000](http://localhost:3000)
+
+---
+
+## 部署到 Vercel
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/your-username/virtual-stock-trading)
+
+部署时需要配置以下环境变量：
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `ITICK_API_KEY`
+
+---
+
+## 数据库设计
+
+| 表名 | 说明 |
+|------|------|
+| `profiles` | 用户资料，含虚拟资金余额 |
+| `stocks` | 股票行情数据缓存 |
+| `portfolios` | 用户持仓 |
+| `orders` | 委托订单 |
+| `transactions` | 成交记录 |
+| `watchlist` | 自选股 |
+
+所有表均启用 RLS（Row Level Security），确保用户只能访问自己的数据。
+
+---
+
+## API 概览
+
+| API | 方法 | 说明 |
+|-----|------|------|
+| `/api/stocks` | GET | 获取股票列表 |
+| `/api/stocks/[symbol]` | GET | 获取单只股票详情 |
+| `/api/trade/order` | POST | 提交委托订单 |
+| `/api/trade/orders` | GET | 获取委托记录 |
+| `/api/trade/positions` | GET | 获取持仓列表 |
+| `/api/user/profile` | GET | 获取用户资料 |
+| `/api/user/stats` | GET | 获取交易统计 |
+| `/api/watchlist` | GET/POST | 自选股管理 |
+
+---
+
+## 开发命令
+
+```bash
+# 开发
+pnpm dev
+
+# 构建
+pnpm build
+
+# 启动生产服务
+pnpm start
+
+# 代码检查
+pnpm lint
+```
+
+---
+
+## License
+
+MIT
