@@ -15,8 +15,8 @@ export function LoginForm({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<"div">) {
-  const [email, setEmail] = useState("demo@stock.com");
-  const [password, setPassword] = useState("123456");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -122,10 +122,7 @@ export function LoginForm({
         </form>
       </div>
 
-      {/* 演示账号提示 */}
-      <p className="text-center text-sm text-guzhang-secondary">
-        演示账号：demo@stock.com / 123456
-      </p>
+
     </div>
   );
 }

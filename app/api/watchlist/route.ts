@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 
 // GET /api/watchlist - 获取自选股列表
 export async function GET() {
@@ -94,8 +95,9 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // 添加到自选股
-    const { error } = await supabase
+    // 添加到自选股（使用 service client 绕过 RLS upsert 限制）
+    const serviceClient = createServiceClient();
+    const { error } = await serviceClient
       .from('watchlist')
       .upsert({
         user_id: user.id,
@@ -103,6 +105,7 @@ export async function POST(request: NextRequest) {
         added_at: new Date().toISOString(),
       }, {
         onConflict: 'user_id,stock_symbol',
+        ignoreDuplicates: true,
       });
     
     if (error) {

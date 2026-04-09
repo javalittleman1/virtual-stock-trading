@@ -1,15 +1,28 @@
 import { TRADE_CONSTANTS, getPriceLimitPercent } from './constants';
 
 /**
+ * 获取中国时区(UTC+8)的时间信息
+ */
+function getChinaTime() {
+  const now = new Date();
+  // 将当前时间转为中国时区
+  const chinaOffset = 8 * 60; // UTC+8
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
+  const chinaDate = new Date(utcMs + chinaOffset * 60 * 1000);
+  return {
+    day: chinaDate.getDay(),
+    hour: chinaDate.getHours(),
+    minute: chinaDate.getMinutes(),
+    time: chinaDate.getHours() * 100 + chinaDate.getMinutes(),
+  };
+}
+
+/**
  * 检查当前是否在交易时间
  * A股交易时间：周一至周五 9:30-11:30, 13:00-15:00
  */
 export function isTradingHour(): boolean {
-  const now = new Date();
-  const day = now.getDay();
-  const hour = now.getHours();
-  const minute = now.getMinutes();
-  const time = hour * 100 + minute;
+  const { day, time } = getChinaTime();
 
   // 周末不交易
   if (day === 0 || day === 6) {
@@ -27,11 +40,7 @@ export function isTradingHour(): boolean {
  * 获取下一个交易时间提示
  */
 export function getNextTradingTime(): string {
-  const now = new Date();
-  const day = now.getDay();
-  const hour = now.getHours();
-  const minute = now.getMinutes();
-  const time = hour * 100 + minute;
+  const { day, time } = getChinaTime();
 
   // 周末
   if (day === 0) return '下一个交易日：周一 9:30';
