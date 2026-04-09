@@ -7,11 +7,19 @@
 - [stores/useStockStore.ts](file://stores/useStockStore.ts)
 - [types/index.ts](file://types/index.ts)
 - [lib/constants.ts](file://lib/constants.ts)
-- [lib/supabase/client.ts](file://lib/supabase/client.ts)
+- [lib/utils.ts](file://lib/utils.ts)
+- [lib/trading-rules.ts](file://lib/trading-rules.ts)
 - [components/stocks/StockCard.tsx](file://components/stocks/StockCard.tsx)
 - [docs/prd.md](file://docs/prd.md)
 - [app/api/stocks/route.ts](file://app/api/stocks/route.ts)
 </cite>
+
+## 更新摘要
+**变更内容**
+- 新增服务客户端集成，使用createServiceClient()绕过Row Level Security限制
+- 实现ignoreDuplicates选项，优化重复添加自选股的处理
+- 更新API端点规范，反映新的数据库操作方式
+- 增强错误处理机制，提升系统稳定性
 
 ## 目录
 1. [简介](#简介)
@@ -27,6 +35,8 @@
 ## 简介
 
 自选股管理API是虚拟股票交易系统的核心功能模块，负责管理用户的自定义股票关注列表。该API提供了完整的自选股生命周期管理，包括获取自选股列表、添加自选股、移除自选股等功能，并集成了实时价格更新机制，确保用户能够获得最新的市场数据。
+
+**更新** 新增服务客户端集成和ignoreDuplicates选项，提升了系统的安全性和性能表现。
 
 ## 项目结构
 
@@ -47,6 +57,7 @@ subgraph "数据库层"
 WATCHLIST["watchlist表<br/>自选股关系表"]
 STOCKS["stocks表<br/>股票基础信息"]
 SUPABASE["Supabase<br/>数据库服务"]
+SERVICE_CLIENT["服务客户端<br/>createServiceClient()"]
 end
 subgraph "前端集成"
 UI["StockCard组件<br/>用户界面"]
@@ -59,17 +70,18 @@ STORE --> TYPES
 STORE --> SUPABASE
 SUPABASE --> WATCHLIST
 SUPABASE --> STOCKS
+SERVICE_CLIENT --> WATCHLIST
 STORE --> UI
 STORE --> REALTIME
 ```
 
 **图表来源**
-- [app/api/watchlist/route.ts:1-129](file://app/api/watchlist/route.ts#L1-L129)
+- [app/api/watchlist/route.ts:1-132](file://app/api/watchlist/route.ts#L1-L132)
 - [stores/useStockStore.ts:1-184](file://stores/useStockStore.ts#L1-L184)
 - [types/index.ts:82-89](file://types/index.ts#L82-L89)
 
 **章节来源**
-- [app/api/watchlist/route.ts:1-129](file://app/api/watchlist/route.ts#L1-L129)
+- [app/api/watchlist/route.ts:1-132](file://app/api/watchlist/route.ts#L1-L132)
 - [stores/useStockStore.ts:1-184](file://stores/useStockStore.ts#L1-L184)
 
 ## 核心组件
@@ -172,6 +184,8 @@ WATCHLIST }o--|| STOCKS : "关注股票"
 }
 ```
 
+**更新** 使用服务客户端和ignoreDuplicates选项优化重复添加处理
+
 #### 移除自选股
 
 **HTTP方法**: DELETE  
@@ -191,9 +205,8 @@ WATCHLIST }o--|| STOCKS : "关注股票"
 ```
 
 **章节来源**
-- [app/api/watchlist/route.ts:4-56](file://app/api/watchlist/route.ts#L4-L56)
-- [app/api/watchlist/route.ts:58-128](file://app/api/watchlist/route.ts#L58-L128)
-- [app/api/watchlist/[symbol]/route.ts:4-49](file://app/api/watchlist/[symbol]/route.ts#L4-L49)
+- [app/api/watchlist/route.ts:59-132](file://app/api/watchlist/route.ts#L59-L132)
+- [app/api/watchlist/[symbol]/route.ts:4-50](file://app/api/watchlist/[symbol]/route.ts#L4-L50)
 
 ## 架构概览
 
@@ -203,6 +216,7 @@ WATCHLIST }o--|| STOCKS : "关注股票"
 sequenceDiagram
 participant Client as "客户端"
 participant API as "Watchlist API"
+participant ServiceClient as "服务客户端"
 participant Store as "Stock Store"
 participant DB as "Supabase数据库"
 participant Realtime as "Realtime订阅"
@@ -213,8 +227,11 @@ API->>API : 计算涨跌幅
 API-->>Client : 返回自选股列表
 Client->>Store : addToWatchlist(symbol)
 Store->>API : POST /api/watchlist
-API->>DB : upsert自选股记录
-DB-->>API : 确认插入
+API->>ServiceClient : 使用服务客户端
+ServiceClient->>DB : upsert自选股记录
+Note over ServiceClient,DB : 绕过RLS限制<br/>ignoreDuplicates : true
+DB-->>ServiceClient : 确认插入
+ServiceClient-->>API : 返回成功响应
 API-->>Store : 返回成功响应
 Store->>Store : 刷新本地状态
 Store->>Realtime : 订阅价格更新
@@ -230,8 +247,8 @@ Store-->>Client : 更新UI显示
 ```
 
 **图表来源**
-- [stores/useStockStore.ts:59-123](file://stores/useStockStore.ts#L59-L123)
-- [app/api/watchlist/route.ts:19-48](file://app/api/watchlist/route.ts#L19-L48)
+- [stores/useStockStore.ts:80-123](file://stores/useStockStore.ts#L80-L123)
+- [app/api/watchlist/route.ts:98-119](file://app/api/watchlist/route.ts#L98-L119)
 - [app/api/watchlist/[symbol]/route.ts:23-41](file://app/api/watchlist/[symbol]/route.ts#L23-L41)
 
 ## 详细组件分析
@@ -256,6 +273,11 @@ class SupabaseClient {
 +upsert(data, options) Result
 +delete() QueryBuilder
 }
+class ServiceClient {
++from(table) QueryBuilder
++upsert(data, options) Result
++ignoreDuplicates : true
+}
 class WatchlistItem {
 +user_id : string
 +stock_symbol : string
@@ -263,11 +285,12 @@ class WatchlistItem {
 +stock? : Stock
 }
 WatchlistController --> SupabaseClient : "使用"
+WatchlistController --> ServiceClient : "使用服务客户端"
 WatchlistController --> WatchlistItem : "返回"
 ```
 
 **图表来源**
-- [app/api/watchlist/route.ts:1-129](file://app/api/watchlist/route.ts#L1-L129)
+- [app/api/watchlist/route.ts:1-132](file://app/api/watchlist/route.ts#L1-L132)
 - [types/index.ts:82-89](file://types/index.ts#L82-L89)
 
 #### 认证机制
@@ -285,7 +308,7 @@ Proceed --> End
 ```
 
 **图表来源**
-- [app/api/watchlist/route.ts:9-17](file://app/api/watchlist/route.ts#L9-L17)
+- [app/api/watchlist/route.ts:10-18](file://app/api/watchlist/route.ts#L10-L18)
 
 #### 数据验证流程
 
@@ -299,7 +322,8 @@ CheckSymbol --> |否| Return400["返回400参数错误"]
 CheckSymbol --> |是| ValidateStock["验证股票存在性"]
 ValidateStock --> StockExists{"股票存在?"}
 StockExists --> |否| Return404["返回404股票不存在"]
-StockExists --> |是| UpsertWatchlist["upsert自选股记录"]
+StockExists --> |是| CreateServiceClient["创建服务客户端"]
+CreateServiceClient --> UpsertWatchlist["upsert自选股记录<br/>ignoreDuplicates: true"]
 UpsertWatchlist --> CheckError{"操作成功?"}
 CheckError --> |否| Return500["返回500服务器错误"]
 CheckError --> |是| ReturnSuccess["返回成功响应"]
@@ -309,11 +333,13 @@ Return500 --> End
 ReturnSuccess --> End
 ```
 
+**更新** 新增服务客户端创建和ignoreDuplicates选项处理
+
 **图表来源**
-- [app/api/watchlist/route.ts:73-95](file://app/api/watchlist/route.ts#L73-L95)
+- [app/api/watchlist/route.ts:74-119](file://app/api/watchlist/route.ts#L74-L119)
 
 **章节来源**
-- [app/api/watchlist/route.ts:1-129](file://app/api/watchlist/route.ts#L1-L129)
+- [app/api/watchlist/route.ts:1-132](file://app/api/watchlist/route.ts#L1-L132)
 
 ### Zustand状态管理
 
@@ -413,6 +439,7 @@ StockCard --> StockStore : "使用"
 graph TB
 subgraph "外部依赖"
 SUPABASE["@supabase/ssr<br/>Supabase客户端"]
+SERVICE_CLIENT["createServiceClient()<br/>服务客户端"]
 ZUSTAND["zustand<br/>状态管理"]
 REACT["react<br/>React框架"]
 end
@@ -421,6 +448,8 @@ API_WATCHLIST["app/api/watchlist<br/>自选股API"]
 STORE_STOCK["stores/useStockStore<br/>股票状态"]
 TYPE_INDEX["types/index.ts<br/>类型定义"]
 CONST_INDEX["lib/constants.ts<br/>常量定义"]
+UTILS["lib/utils.ts<br/>工具函数"]
+TRADING_RULES["lib/trading-rules.ts<br/>交易规则"]
 end
 subgraph "数据库层"
 TABLE_WATCHLIST["watchlist表"]
@@ -428,23 +457,31 @@ TABLE_STOCKS["stocks表"]
 TABLE_PROFILES["profiles表"]
 end
 API_WATCHLIST --> SUPABASE
+API_WATCHLIST --> SERVICE_CLIENT
 STORE_STOCK --> ZUSTAND
 STORE_STOCK --> SUPABASE
 STORE_STOCK --> TYPE_INDEX
 API_WATCHLIST --> TYPE_INDEX
 API_WATCHLIST --> CONST_INDEX
+API_WATCHLIST --> UTILS
+API_WATCHLIST --> TRADING_RULES
 SUPABASE --> TABLE_WATCHLIST
 SUPABASE --> TABLE_STOCKS
 SUPABASE --> TABLE_PROFILES
+SERVICE_CLIENT --> TABLE_WATCHLIST
+SERVICE_CLIENT --> TABLE_STOCKS
+SERVICE_CLIENT --> TABLE_PROFILES
 ```
 
 **图表来源**
-- [lib/supabase/client.ts:1-9](file://lib/supabase/client.ts#L1-L9)
+- [lib/utils.ts:1-47](file://lib/utils.ts#L1-L47)
+- [lib/trading-rules.ts:1-281](file://lib/trading-rules.ts#L1-L281)
 - [stores/useStockStore.ts:1-5](file://stores/useStockStore.ts#L1-L5)
 - [types/index.ts:1-166](file://types/index.ts#L1-L166)
 
 **章节来源**
-- [lib/supabase/client.ts:1-9](file://lib/supabase/client.ts#L1-L9)
+- [lib/utils.ts:1-47](file://lib/utils.ts#L1-L47)
+- [lib/trading-rules.ts:1-281](file://lib/trading-rules.ts#L1-L281)
 - [stores/useStockStore.ts:1-184](file://stores/useStockStore.ts#L1-L184)
 
 ## 性能考虑
@@ -454,6 +491,7 @@ SUPABASE --> TABLE_PROFILES
 1. **索引设计**: watchlist表使用复合主键`(user_id, stock_symbol)`，确保查询和去重的高效性
 2. **查询优化**: 使用`select`指定字段，避免不必要的数据传输
 3. **排序优化**: 按`added_at`降序排列，提供最新的自选股顺序
+4. **RLS绕过**: 使用服务客户端绕过Row Level Security限制，提升操作性能
 
 ### 前端性能优化
 
@@ -525,6 +563,8 @@ Return200 --> End
 3. **测试数据流**: 通过单元测试验证数据流的正确性
 4. **性能监控**: 监控API响应时间和数据库查询性能
 
+**更新** 新增服务客户端和ignoreDuplicates选项的调试要点
+
 **章节来源**
 - [app/api/watchlist/route.ts:12-55](file://app/api/watchlist/route.ts#L12-L55)
 - [stores/useStockStore.ts:52-77](file://stores/useStockStore.ts#L52-L77)
@@ -533,12 +573,15 @@ Return200 --> End
 
 自选股管理API通过清晰的架构设计和完善的错误处理机制，为用户提供了一个稳定可靠的自选股管理功能。系统采用分层架构，实现了前后端分离和实时数据同步，确保了良好的用户体验。
 
+**更新** 新增的服务客户端集成和ignoreDuplicates选项显著提升了系统的安全性和性能表现，绕过了Row Level Security限制，实现了更高效的重复数据处理。
+
 ### 主要优势
 
 1. **安全性**: 完整的用户认证和授权机制
 2. **实时性**: 基于Supabase Realtime的实时数据同步
 3. **可扩展性**: 模块化设计，易于功能扩展
 4. **可靠性**: 完善的错误处理和日志记录机制
+5. **性能优化**: 服务客户端绕过RLS限制，提升操作效率
 
 ### 未来改进方向
 
@@ -546,5 +589,6 @@ Return200 --> End
 2. **性能优化**: 实现更高效的缓存策略和数据预加载
 3. **用户体验**: 增加自选股排序、分组等高级功能
 4. **监控告警**: 增强系统的监控和告警能力
+5. **安全增强**: 进一步优化服务客户端的安全配置
 
 通过持续的优化和改进，自选股管理API将为用户提供更加优质的股票交易体验。

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import { 
   isTradingHour, 
   validateBuyOrder, 
@@ -11,6 +12,8 @@ import {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
+    // 使用 service client 绕过 RLS 进行写入操作
+    const serviceClient = createServiceClient();
     
     // 获取当前用户
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -108,7 +111,7 @@ export async function POST(request: NextRequest) {
       
       // 开始事务处理
       // 1. 扣除资金
-      const { error: updateError } = await supabase
+      const { error: updateError } = await serviceClient
         .from('profiles')
         .update({ 
           virtual_balance: profile.virtual_balance - total,
@@ -125,7 +128,7 @@ export async function POST(request: NextRequest) {
       }
       
       // 2. 创建订单记录
-      const { data: order, error: orderError } = await supabase
+      const { data: order, error: orderError } = await serviceClient
         .from('orders')
         .insert({
           user_id: user.id,
@@ -150,7 +153,7 @@ export async function POST(request: NextRequest) {
       }
       
       // 3. 创建交易记录
-      await supabase.from('transactions').insert({
+      await serviceClient.from('transactions').insert({
         user_id: user.id,
         stock_symbol: symbol,
         type: 'buy',
@@ -163,7 +166,7 @@ export async function POST(request: NextRequest) {
       });
       
       // 4. 更新持仓
-      const { data: existingPortfolio } = await supabase
+      const { data: existingPortfolio } = await serviceClient
         .from('portfolios')
         .select('*')
         .eq('user_id', user.id)
@@ -176,7 +179,7 @@ export async function POST(request: NextRequest) {
         const totalQuantity = existingPortfolio.quantity + quantity;
         const newAvgCost = totalCost / totalQuantity;
         
-        await supabase
+        await serviceClient
           .from('portfolios')
           .update({
             quantity: totalQuantity,
@@ -186,7 +189,7 @@ export async function POST(request: NextRequest) {
           .eq('id', existingPortfolio.id);
       } else {
         // 创建新持仓
-        await supabase.from('portfolios').insert({
+        await serviceClient.from('portfolios').insert({
           user_id: user.id,
           stock_symbol: symbol,
           quantity,
@@ -245,14 +248,14 @@ export async function POST(request: NextRequest) {
       const { fee, total } = calculateTotalCost(orderPrice, quantity, 'sell');
       
       // 获取用户资金
-      const { data: profile } = await supabase
+      const { data: profile } = await serviceClient
         .from('profiles')
         .select('virtual_balance')
         .eq('id', user.id)
         .single();
       
       // 1. 增加资金
-      await supabase
+      await serviceClient
         .from('profiles')
         .update({ 
           virtual_balance: profile!.virtual_balance + total,
@@ -261,7 +264,7 @@ export async function POST(request: NextRequest) {
         .eq('id', user.id);
       
       // 2. 创建订单记录
-      const { data: order } = await supabase
+      const { data: order } = await serviceClient
         .from('orders')
         .insert({
           user_id: user.id,
@@ -278,7 +281,7 @@ export async function POST(request: NextRequest) {
         .single();
       
       // 3. 创建交易记录
-      await supabase.from('transactions').insert({
+      await serviceClient.from('transactions').insert({
         user_id: user.id,
         stock_symbol: symbol,
         type: 'sell',
@@ -293,7 +296,7 @@ export async function POST(request: NextRequest) {
       // 4. 更新持仓
       const newQuantity = portfolio.quantity - quantity;
       if (newQuantity > 0) {
-        await supabase
+        await serviceClient
           .from('portfolios')
           .update({
             quantity: newQuantity,
@@ -302,7 +305,7 @@ export async function POST(request: NextRequest) {
           .eq('id', portfolio.id);
       } else {
         // 清仓，删除持仓记录
-        await supabase
+        await serviceClient
           .from('portfolios')
           .delete()
           .eq('id', portfolio.id);
