@@ -17,6 +17,7 @@ interface TradeState {
     price: number; 
     quantity: number;
     orderType?: 'limit' | 'market';
+    forceNonTrading?: boolean;
   }) => Promise<{ success: boolean; error?: string; data?: Order }>;
   cancelOrder: (orderId: string) => Promise<{ success: boolean; error?: string }>;
   subscribeHoldings: (userId: string) => () => void;

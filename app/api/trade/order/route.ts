@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     }
     
     const body = await request.json();
-    const { symbol, type, price, quantity, orderType = 'limit' } = body;
+    const { symbol, type, price, quantity, orderType = 'limit', forceNonTrading = false } = body;
     
     // 参数验证
     if (!symbol || !type || !quantity) {
@@ -43,8 +43,8 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // 检查交易时间
-    if (!isTradingHour()) {
+    // 检查交易时间（forceNonTrading=true 时跳过，仅用于测试）
+    if (!isTradingHour() && !forceNonTrading) {
       return NextResponse.json(
         { error: '非交易时间，无法下单' },
         { status: 403 }

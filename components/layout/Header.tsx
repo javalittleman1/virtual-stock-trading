@@ -37,11 +37,13 @@ export function Header() {
         className="sticky top-0 z-50 px-5 flex items-center justify-between h-14"
         style={{ background: 'var(--guzhang-bg-app)', borderBottom: '1px solid var(--guzhang-border-light)' }}
       >
-        {/* Logo */}
-        <Link href="/stocks" className="flex items-center gap-2">
+        {/* Logo — 移动端显示，桌面端隐藏（有侧边栏时不需要） */}
+        <Link href="/stocks" className="flex items-center gap-2 lg:hidden">
           <TrendingUp className="h-5 w-5 text-primary" />
           <span className="font-bold text-xl" style={{ color: 'var(--guzhang-text-primary)' }}>股掌</span>
         </Link>
+        {/* 桌面端占位，保持右侧图标对齐 */}
+        <div className="hidden lg:block" />
 
         {/* 右侧图标 */}
         <div className="flex items-center gap-5">
