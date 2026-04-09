@@ -27,7 +27,6 @@ export function TradeForm({ stock, defaultType = 'buy' }: TradeFormProps) {
   const [price, setPrice] = useState<string>('');
   const [quantity, setQuantity] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [nonTradingConfirm, setNonTradingConfirm] = useState(false); // 非交易时间二次确认状态
   
   const { submitOrder, getHoldingBySymbol } = useTradeStore();
   const { assetOverview } = useUserStore();
@@ -84,16 +83,8 @@ export function TradeForm({ stock, defaultType = 'buy' }: TradeFormProps) {
 
   const handleSubmit = async () => {
     if (!canTrade) {
-      if (!nonTradingConfirm) {
-        // 第一次点击：显示警告，等待二次确认
-        setNonTradingConfirm(true);
-        showToast('⚠️ 当前非交易时间！再次点击确认将强制下单（仅测试环境）', 'error');
-        // 5秒后自动重置确认状态
-        setTimeout(() => setNonTradingConfirm(false), 5000);
-        return;
-      }
-      // 第二次点击：强制下单，重置确认状态
-      setNonTradingConfirm(false);
+      showToast('当前非交易时间，无法下单', 'error');
+      return;
     }
 
     if (!priceNum || !quantityNum) {
@@ -123,7 +114,6 @@ export function TradeForm({ stock, defaultType = 'buy' }: TradeFormProps) {
       type,
       price: priceNum,
       quantity: quantityNum,
-      forceNonTrading: !canTrade, // 非交易时间强制标志
     });
 
     setIsSubmitting(false);
@@ -229,9 +219,9 @@ export function TradeForm({ stock, defaultType = 'buy' }: TradeFormProps) {
         onClick={handleSubmit}
         disabled={isSubmitting || !priceNum || !quantityNum}
         className="w-full py-[18px] rounded-[48px] font-bold text-[18px] text-white transition-opacity disabled:opacity-50"
-        style={{ background: nonTradingConfirm ? '#c0392b' : '#1e3a5f' }}
+        style={{ background: '#1e3a5f' }}
       >
-        {isSubmitting ? '提交中...' : nonTradingConfirm ? `❗再次确认${type === 'buy' ? '买入' : '卖出'}` : `确认${type === 'buy' ? '买入' : '卖出'}`}
+        {isSubmitting ? '提交中...' : `确认${type === 'buy' ? '买入' : '卖出'}`}
       </button>
   
       {/* 可用资金提示 */}

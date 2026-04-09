@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface Signal {
   icon: string;
@@ -13,9 +13,15 @@ interface Signal {
   label?: string;
 }
 
+interface UserStats {
+  total_trades: number;
+  win_rate: number;
+  total_return_rate: number;
+}
+
 const signals: Signal[] = [
   { icon: '🔥', name: '三阴不破阳', code: '600519', support: '1680.00' },
-  { icon: '✂️', name: '涨停揉搓线', code: '300750', resist: '210.00' },
+  { icon: '✂️', name: '涨停揉搜线', code: '300750', resist: '210.00' },
   { icon: '⏳', name: '倍量阴买点', code: '002594', breakPoint: '252.00' },
   { icon: '🔄', name: 'N字涨停', code: '000858', ma10: true },
   { icon: '🚀', name: '高位反包', code: '601318', label: '反包板' },
@@ -29,6 +35,14 @@ const firstBoard = [
 export default function AnalysisPage() {
   const [alerts, setAlerts] = useState({ pressure: true, tail: false, stop: true });
   const [modalSignal, setModalSignal] = useState<Signal | null>(null);
+  const [stats, setStats] = useState<UserStats | null>(null);
+
+  useEffect(() => {
+    fetch('/api/user/stats')
+      .then(r => r.json())
+      .then(d => setStats(d))
+      .catch(() => {});
+  }, []);
 
   const toggleAlert = (key: keyof typeof alerts) => {
     setAlerts(prev => ({ ...prev, [key]: !prev[key] }));
@@ -57,8 +71,8 @@ export default function AnalysisPage() {
       {/* 统计卡片 */}
       <div className="grid grid-cols-2 gap-3">
         {[
-          { label: '今日信号', value: '8', color: '' },
-          { label: '近5日胜率', value: '62.5%', color: '#0f9d6e' },
+          { label: '交易次数', value: stats ? `${stats.total_trades}` : '--', color: '' },
+          { label: '胜率', value: stats ? `${stats.win_rate.toFixed(1)}%` : '--', color: '#0f9d6e' },
         ].map((s) => (
           <div
             key={s.label}

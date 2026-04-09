@@ -3,38 +3,79 @@
 import { PositionList } from '@/components/portfolio/PositionList';
 import { TradeHistory } from '@/components/trade/TradeHistory';
 import { useUserStore } from '@/stores/useUserStore';
+import { useTradeStore } from '@/stores/useTradeStore';
 import { Stock } from '@/types';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { TradeForm } from '@/components/trade/TradeForm';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { formatCurrency } from '@/lib/utils';
+
+interface UserStats {
+  total_trades: number;
+  win_rate: number;
+  max_drawdown: number;
+  total_return_rate: number;
+}
 
 export default function PortfolioPage() {
   const [selectedStock, setSelectedStock] = useState<Stock | undefined>();
   const [isTradeDialogOpen, setIsTradeDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'holdings' | 'history'>('holdings');
+  const [stats, setStats] = useState<UserStats | null>(null);
   const { assetOverview } = useUserStore();
+  const { holdings } = useTradeStore();
   const { signOut } = useAuthStore();
+
+  useEffect(() => {
+    fetch('/api/user/stats')
+      .then(r => r.json())
+      .then(d => setStats(d))
+      .catch(() => {});
+  }, [holdings]); // 每次持仓变化时重新计算
 
   const handleStockClick = (stock: Stock) => {
     setSelectedStock(stock);
     setIsTradeDialogOpen(true);
   };
 
-  const totalReturn = assetOverview
-    ? ((assetOverview.total_profit_loss / (assetOverview.total_assets - assetOverview.total_profit_loss)) * 100).toFixed(2)
-    : '0.00';
+  // 从资产概览计算收益率
+  const totalReturnRate = stats?.total_return_rate ?? (
+    assetOverview
+      ? ((assetOverview.total_profit_loss / (1000000 - assetOverview.total_profit_loss)) * 100).toFixed(2)
+      : '0.00'
+  );
+
+  const statCards = [
+    {
+      label: '总收益率',
+      value: stats
+        ? `${stats.total_return_rate >= 0 ? '+' : ''}${stats.total_return_rate.toFixed(2)}%`
+        : (assetOverview ? `${Number(totalReturnRate) >= 0 ? '+' : ''}${totalReturnRate}%` : '--'),
+      color: (stats?.total_return_rate ?? 0) >= 0 ? '#0f9d6e' : '#d83a3a',
+    },
+    {
+      label: '总资产',
+      value: assetOverview ? formatCurrency(assetOverview.total_assets) : '--',
+      color: '',
+    },
+    {
+      label: '胜率',
+      value: stats ? `${stats.win_rate.toFixed(1)}%` : '--',
+      color: '',
+    },
+    {
+      label: '交易次数',
+      value: stats ? `${stats.total_trades}` : '--',
+      color: '',
+    },
+  ];
 
   return (
     <div className="space-y-4">
       {/* 统计卡片 */}
       <div className="grid grid-cols-2 gap-3">
-        {[
-          { label: '累计收益率', value: `+${totalReturn}%`, color: '#0f9d6e' },
-          { label: '最大回撤', value: '-8.32%', color: '#d83a3a' },
-          { label: '胜率', value: '62.5%', color: '' },
-          { label: '交易次数', value: '48', color: '' },
-        ].map((s) => (
+        {statCards.map((s) => (
           <div
             key={s.label}
             className="rounded-[20px] p-4"
